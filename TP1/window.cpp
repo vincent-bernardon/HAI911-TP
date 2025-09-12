@@ -76,6 +76,11 @@ Window::Window(MainWindow *mw)
     connect(ySlider, &QSlider::valueChanged, glWidget, &GLWidget::setYRotation);
     connect(zSlider, &QSlider::valueChanged, glWidget, &GLWidget::setZRotation);
 
+    connect(glWidget, &GLWidget::xRotationChanged, xSlider, &QSlider::setValue);
+    connect(glWidget, &GLWidget::yRotationChanged, ySlider, &QSlider::setValue);
+    connect(glWidget, &GLWidget::zRotationChanged, zSlider, &QSlider::setValue);
+
+
 
     QVBoxLayout *mainLayout = new QVBoxLayout;
     QHBoxLayout *container = new QHBoxLayout;

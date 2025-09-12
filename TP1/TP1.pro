@@ -6,12 +6,15 @@ INCLUDEPATH += $$PWD
 HEADERS       = glwidget.h \
                 window.h \
                 mainwindow.h \
-                logo.h
+                logo.h \
+                mesh.h
+
 SOURCES       = glwidget.cpp \
                 main.cpp \
                 window.cpp \
                 mainwindow.cpp \
-                logo.cpp
+                logo.cpp \
+                mesh.cpp
 
 RESOURCES += \
     shaders.qrc

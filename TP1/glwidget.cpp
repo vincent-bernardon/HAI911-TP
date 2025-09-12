@@ -102,7 +102,7 @@ void GLWidget::setXRotation(int angle)
     if (angle != m_xRot) {
         m_xRot = angle;
         //Completer pour emettre un signal
-
+        emit xRotationChanged(m_xRot);
         update();
     }
 }
@@ -113,7 +113,7 @@ void GLWidget::setYRotation(int angle)
     if (angle != m_yRot) {
         m_yRot = angle;
         //Completer pour emettre un signal
-
+        emit yRotationChanged(m_yRot);
         update();
     }
 }
@@ -124,7 +124,7 @@ void GLWidget::setZRotation(int angle)
     if (angle != m_zRot) {
         m_zRot = angle;
         //Completer pour emettre un signal
-
+        emit zRotationChanged(m_zRot);
         update();
     }
 }
@@ -134,7 +134,8 @@ void GLWidget::cleanup()
     if (m_program == nullptr)
         return;
     makeCurrent();
-    m_logoVbo.destroy();
+    // m_logoVbo.destroy();
+    m_meshVbo.destroy();
     delete m_program;
     m_program = 0;
     doneCurrent();
@@ -186,9 +187,13 @@ void GLWidget::initializeGL()
     QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
 
     // Setup our vertex buffer object.
-    m_logoVbo.create();
-    m_logoVbo.bind();
-    m_logoVbo.allocate(m_logo.constData(), m_logo.count() * sizeof(GLfloat));
+    // m_logoVbo.create();
+    // m_logoVbo.bind();
+    // m_logoVbo.allocate(m_logo.constData(), m_logo.count() * sizeof(GLfloat));
+
+    m_meshVbo.create();
+    m_meshVbo.bind();
+    m_meshVbo.allocate(m_mesh.constData(), m_mesh.count() * sizeof(GLfloat));
 
     // Store the vertex attribute bindings for the program.
     setupVertexAttribs();
@@ -205,13 +210,21 @@ void GLWidget::initializeGL()
 
 void GLWidget::setupVertexAttribs()
 {
-    m_logoVbo.bind();
-    QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
-    f->glEnableVertexAttribArray(0);
-    f->glEnableVertexAttribArray(1);
-    f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
-    f->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), reinterpret_cast<void *>(3 * sizeof(GLfloat)));
-    m_logoVbo.release();
+    // m_logoVbo.bind();
+    // QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
+    // f->glEnableVertexAttribArray(0);
+    // f->glEnableVertexAttribArray(1);
+    // f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
+    // f->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), reinterpret_cast<void *>(3 * sizeof(GLfloat)));
+    // m_logoVbo.release();
+
+    m_meshVbo.bind();
+    QOpenGLFunctions *g = QOpenGLContext::currentContext()->functions();
+    g->glEnableVertexAttribArray(0);
+    g->glEnableVertexAttribArray(1);
+    g->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
+    g->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), reinterpret_cast<void *>(3 * sizeof(GLfloat)));
+    m_meshVbo.release();
 }
 
 void GLWidget::paintGL()
@@ -235,7 +248,9 @@ void GLWidget::paintGL()
     // Set normal matrix
     m_program->setUniformValue(m_normal_matrix_loc, normal_matrix);
 
-    glDrawArrays(GL_TRIANGLES, 0, m_logo.vertexCount());
+    // glDrawArrays(GL_TRIANGLES, 0, m_logo.vertexCount());
+    glDrawArrays(GL_TRIANGLES, 0, m_mesh.vertexCount());
+    
 
     m_program->release();
 }

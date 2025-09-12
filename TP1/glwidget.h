@@ -57,6 +57,8 @@
 #include <QOpenGLBuffer>
 #include <QMatrix4x4>
 #include "logo.h"
+#include "mesh.h"
+
 
 QT_FORWARD_DECLARE_CLASS(QOpenGLShaderProgram)
 
@@ -84,7 +86,9 @@ public slots:
 signals:
 
     //Completer : ajouter des signaux pour signaler des changement de rotation
-
+    void xRotationChanged(int x);
+    void yRotationChanged(int y);
+    void zRotationChanged(int z);
 
 protected:
     void initializeGL() override;
@@ -102,8 +106,10 @@ private:
     int m_zRot;
     QPoint m_last_position;
     Logo m_logo;
+    Mesh m_mesh;
     QOpenGLVertexArrayObject m_vao;
     QOpenGLBuffer m_logoVbo;
+    QOpenGLBuffer m_meshVbo;
     QOpenGLShaderProgram *m_program;
     int m_mvp_matrix_loc;
     int m_normal_matrix_loc;
