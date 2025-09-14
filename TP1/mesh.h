@@ -10,9 +10,12 @@ class Mesh
 {
 public:
     Mesh();
+    void generateCube();
     const GLfloat *constData() const { return m_data.constData(); }
     int count() const { return m_count; }
     int vertexCount() const { return m_count / 6; }
+    void loadOFF(const std::string &filename);
+
 
 private:
     void quad(const QVector3D &v1, const QVector3D &v2, const QVector3D &v3, const QVector3D &v4);

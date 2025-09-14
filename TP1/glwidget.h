@@ -76,12 +76,16 @@ public:
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
 
+
 public slots:
     //Completer : ajouter des slots pour signaler appliquer le changement de rotation
     void setXRotation(int angle);
     void setYRotation(int angle);
     void setZRotation(int angle);
     void cleanup();
+
+public:
+    void loadMeshOFF(const QString& filename);
 
 signals:
 
@@ -107,6 +111,7 @@ private:
     QPoint m_last_position;
     Logo m_logo;
     Mesh m_mesh;
+    bool m_meshLoaded = false;
     QOpenGLVertexArrayObject m_vao;
     QOpenGLBuffer m_logoVbo;
     QOpenGLBuffer m_meshVbo;

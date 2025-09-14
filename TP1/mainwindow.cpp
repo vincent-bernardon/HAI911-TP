@@ -50,9 +50,11 @@
 
 #include "mainwindow.h"
 #include "window.h"
+#include "glwidget.h"
 #include <QMenuBar>
 #include <QMenu>
 #include <QMessageBox>
+#include <QFileDialog>
 
 MainWindow::MainWindow()
 {
@@ -62,6 +64,15 @@ MainWindow::MainWindow()
     addNew->setText(tr("Add new"));
     menuWindow->addAction(addNew);
     connect(addNew, &QAction::triggered, this, &MainWindow::onAddNew);
+
+    // Ajout du menu pour charger un fichier OFF
+    QMenu *menuFichier = menuBar->addMenu(tr("&Fichier"));
+    QAction *loadOFF = new QAction(menuFichier);
+    loadOFF->setText(tr("Charger un maillage OFF..."));
+    menuFichier->addAction(loadOFF);
+    connect(loadOFF, &QAction::triggered, this, &MainWindow::onLoadOFF);
+
+
     setMenuBar(menuBar);
 
     onAddNew();
@@ -73,4 +84,21 @@ void MainWindow::onAddNew()
         setCentralWidget(new Window(this));
     else
         QMessageBox::information(0, tr("Cannot add new window"), tr("Already occupied. Undock first."));
+}
+
+// Ajout : slot pour charger un fichier OFF
+void MainWindow::onLoadOFF()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Charger un fichier OFF"), QString(), tr("Fichiers OFF (*.off)"));
+    if (fileName.isEmpty())
+        return;
+
+    // On suppose que le centralWidget est de type Window et qu'il possède un GLWidget
+    Window* w = qobject_cast<Window*>(centralWidget());
+    if (w) {
+        GLWidget* glw = w->findChild<GLWidget*>();
+        if (glw) {
+            glw->loadMeshOFF(fileName);
+        }
+    }
 }

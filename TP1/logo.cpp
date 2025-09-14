@@ -149,3 +149,4 @@ void Logo::extrude(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
     add(QVector3D(x2, y2, +0.05f), n);
     add(QVector3D(x1, y1, -0.05f), n);
 }
+

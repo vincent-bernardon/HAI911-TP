@@ -60,6 +60,7 @@ class Logo
 {
 public:
     Logo();
+    void clear() { m_data.clear(); m_count = 0; } // Vide le logo
     const GLfloat *constData() const { return m_data.constData(); } //retourne un pointeur vers les données du logo (tableau de GLfloat)
     int count() const { return m_count; } 
     int vertexCount() const { return m_count / 6; } //permet de savoir combien de vertex on a (6 composantes par vertex: x,y,z + nx,ny,nz)
