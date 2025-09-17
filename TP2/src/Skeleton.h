@@ -260,10 +260,11 @@ struct Skeleton
         // Cyclic-Coordinate Descen ; diapo 86
 
         // Vec3 D = targetPosition;
-        Articulation E = articulations[targetArticulation];
+        // Articulation E = articulations[targetArticulation];
+        // unsigned int IdxNextArticulation = bones[E.fatherBone].joints[0];
 
         // trouver R (l'autre articulation du bone)
-        unsigned int RIdx = bones[E.fatherBone].joints[0];
+        // unsigned int RIdx = bones[E.fatherBone].joints[0];
         // Articulation R = articulations[RIdx];
 
         // vecteur RD
@@ -274,52 +275,48 @@ struct Skeleton
         // Vec3 RE = E.p - R.p;
         // RE.normalize();
 
-        // trouver l'axe de rotation en utilise Mat3::getRotationMatrixAligning
-        // Mat3 Rmat = Mat3::getRotationMatrixAligning(RE, RD);
-
         // donc maintenant il faut continuer sur chaque articulation du chain jusqu'a arriver au Root
         // une fois arriver au route on recommence jusqu'a ce que l'erreur soit petite
         // ou qu'on ait fait maxIterNumber itérations
-        // E est fixe on de dois pas le touché pour les boucles 
+        // E est fixe on de dois pas le touché pour les boucles
 
-        // application locale
-        // transfoIK.bone_transformations[E.fatherBone].localRotation = Rmat * transfoIK.bone_transformations[E.fatherBone].localRotation;
+        unsigned int E_articulation = targetArticulation;
+        Vec3 D_targetPosition = targetPosition;
 
-        // computeGlobalTransformationParameters(transfoIK);
-
-        // tanque l'erreur est grande et qu'on a pas fait trop d'itérations
-        for (unsigned int iter = 0; iter < maxIterNumber; ++iter)
+        if (articulations[E_articulation].isRoot())
         {
-            // exite
-            Vec3 currentEndPos = transfoIK.articulations_transformed_position[targetArticulation];
-            if ((currentEndPos - targetPosition).length() < epsilonPrecision)
-                break;
+            return;
+        }
 
-            // pour chaque articulation du chain
-            unsigned int currentArticulationIdx = RIdx;
-            while (!articulations[currentArticulationIdx].isRoot())
-            {
-                //prendre la prochaine articulation
-                Articulation currentArticulation = articulations[currentArticulationIdx];
-                unsigned int fatherBoneIdx = currentArticulation.fatherBone;
-                Articulation fatherArticulation = articulations[bones[fatherBoneIdx].joints[0]];
-                // trouver R (l'autre articulation du bone)
-                Articulation R = fatherArticulation;
-                // vecteur RD
-                Vec3 RD = targetPosition - R.p;
-                RD.normalize();
-                // RE avec E notre targetarticulation
-                Vec3 RE = E.p - R.p;
-                RE.normalize();
-                // trouver l'axe de rotation en utilise Mat3::getRotationMatrixAligning
-                Mat3 Rmat = Mat3::getRotationMatrixAligning(RE, RD);
-                // application locale
-                transfoIK.bone_transformations[fatherBoneIdx].localRotation = Rmat * transfoIK.bone_transformations[fatherBoneIdx].localRotation;
+        Vec3 E_position = transfoIK.articulations_transformed_position[E_articulation]; //articulations_transformed_position permet de récupérer la position locale de l'articulation
+        int R_articulationId = bones[articulations[E_articulation].fatherBone].joints[0];
+
+        int iter = 0;
+
+        while(iter<maxIterNumber){ // tanque on a pas fait assé d'iteration
+            while ((D_targetPosition - E_position).length() > epsilonPrecision && R_articulationId > 0){ // Tant que E n'est pas assez proche de D (distance > précision) ET qu'il reste des articulations à traiter dans la chaîne
+
+                Vec3 R_position = transfoIK.articulations_transformed_position[R_articulationId];
+
+                Vec3 RD = D_targetPosition - R_position; // D - Position R
+                Vec3 RE = E_position - R_position;       // Position E - Position R
+                Mat3 rotationMatrix = Mat3::getRotationMatrixAligning(RE, RD);
+
+                // Récupérer l'indice de l'os enfant de l'articulation R
+                unsigned int childBoneIndex = articulations[R_articulationId].childBones[0];
+                
+                // Appliquer la rotation calculée à la transformation locale de l'os
+                BoneTransformation& childBoneTransform = transfoIK.bone_transformations[childBoneIndex];
+                childBoneTransform.localRotation = rotationMatrix * childBoneTransform.localRotation;
+
                 computeGlobalTransformationParameters(transfoIK);
-                // passer a l'articulation du dessus
-                currentArticulationIdx = bones[fatherBoneIdx].joints[0];
-            }
 
+                if (articulations[R_articulationId].fatherBone >= 0){
+                    E_position = transfoIK.articulations_transformed_position[E_articulation];
+                    R_articulationId = bones[articulations[R_articulationId].fatherBone].joints[0];
+                }
+            }
+            iter++;
         }
 
         // You should orient the articulation towards target position: -> find R
