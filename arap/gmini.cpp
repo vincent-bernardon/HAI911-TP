@@ -190,16 +190,16 @@ void updateSystem() {
 
             // WHAT TO PUT HERE ??????? How to update the entries of A ?
             
-            arapLinearSystem.A(equationIndex,v)=1;
-            arapLinearSystem.A(equationIndex,vNeighbor)=-1;
+            arapLinearSystem.A(equationIndex,3*v)=-1.0f;
+            arapLinearSystem.A(equationIndex,3*vNeighbor)=1.0f;
             equationIndex++;
 
-            arapLinearSystem.A(equationIndex,1+v)=1;
-            arapLinearSystem.A(equationIndex,1+vNeighbor)=-1;
+            arapLinearSystem.A(equationIndex,1+3*v)=-1.0f;
+            arapLinearSystem.A(equationIndex,1+3*vNeighbor)=1.0f;
             equationIndex++;
 
-            arapLinearSystem.A(equationIndex,2+v)=1;
-            arapLinearSystem.A(equationIndex,2+vNeighbor)=-1;
+            arapLinearSystem.A(equationIndex,2+3*v)=-1.0f;
+            arapLinearSystem.A(equationIndex,2+3*vNeighbor)=1.0f;
             equationIndex++;
 
             
@@ -209,6 +209,10 @@ void updateSystem() {
         if(verticesHandles[v] != -1) {
 
             // WHAT TO PUT HERE ??????? How to update the entries of A ?
+            arapLinearSystem.A(equationIndex,3*v)=1.0f;
+            arapLinearSystem.A(equationIndex+1,1+3*v)=1.0f;
+            arapLinearSystem.A(equationIndex+2,2+3*v)=1.0f;
+            equationIndex+=3;
 
         }
     }
@@ -220,13 +224,13 @@ void updateSystem() {
 
 
 void updateMeshVertexPositionsFromARAPSolver() {
-    return; // TODO : COMMENT THIS LINE WHEN YOU START THE EXERCISE  (setup of the matrix A for the linear system A.X=B)
+    // return; // TODO : COMMENT THIS LINE WHEN YOU START THE EXERCISE  (setup of the matrix A for the linear system A.X=B)
     updateSystem();
 
     unsigned int maxIterationsForArap = 5;
 
 
-    return; // TODO : COMMENT THIS LINE WHEN YOU CONTINUE THE EXERCISE  (setup of the vector B for the linear system A.X=B)
+    // return; // TODO : COMMENT THIS LINE WHEN YOU CONTINUE THE EXERCISE  (setup of the vector B for the linear system A.X=B)
     // set the right values for the vector b in the linear system, solve the linear system and update the positions using the solution.
 
 
@@ -243,6 +247,12 @@ void updateMeshVertexPositionsFromARAPSolver() {
                 rotatedEdge = vertexRotationMatrices[v] * rotatedEdge;
 
                 // WHAT TO PUT HERE ??????? How to update the entries of b ?
+                arapLinearSystem.b(equationIndex)=rotatedEdge[0];
+                equationIndex++;
+                arapLinearSystem.b(equationIndex)=rotatedEdge[1];
+                equationIndex++;
+                arapLinearSystem.b(equationIndex)=rotatedEdge[2];
+                equationIndex++;
 
             }
         }
@@ -250,6 +260,12 @@ void updateMeshVertexPositionsFromARAPSolver() {
             if(verticesHandles[v] != -1) {
 
                 // WHAT TO PUT HERE ??????? How to update the entries of b ?
+                arapLinearSystem.b(equationIndex)=mesh.V[v].p[0];
+                equationIndex++;
+                arapLinearSystem.b(equationIndex)=mesh.V[v].p[1];
+                equationIndex++;
+                arapLinearSystem.b(equationIndex)=mesh.V[v].p[2];
+                equationIndex++;
 
             }
         }
@@ -266,7 +282,7 @@ void updateMeshVertexPositionsFromARAPSolver() {
 
 
 
-        return; // TODO : COMMENT THIS LINE WHEN YOU CONTINUE THE EXERCISE (update of the rotation matrices -- auxiliary variables)
+        // return; // TODO : COMMENT THIS LINE WHEN YOU CONTINUE THE EXERCISE (update of the rotation matrices -- auxiliary variables)
 
 
 
@@ -283,9 +299,11 @@ void updateMeshVertexPositionsFromARAPSolver() {
                     rotatedEdge[coord] = mesh.V[vNeighbor].p[coord]  -  mesh.V[v].p[coord];
                 }
 
-                // WHAT TO PUT HERE ??????? How to update the entries of the tensor matrix ?
-
+                // WHAT TO PUT HERE ??????? How to update the entries of the tensor   ?
+                // 1 build
+                tensorMatrix += it->second * (rotatedEdge * initialEdge.transpose());
             }
+            // 2 SVD 3 solution
             vertexRotationMatrices[v] = getClosestRotation( tensorMatrix );
         }
     }
