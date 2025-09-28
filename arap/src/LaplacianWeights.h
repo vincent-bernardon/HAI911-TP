@@ -139,69 +139,53 @@ public:
             double dot1 = Vec3::dot(p0 - p1, p2 - p1);
             double dot2 = Vec3::dot(p0 - p2, p1 - p2);
 
-            Vec3 milieu;
-            // si les angle sont trop grands, dot est negatif
-            if (dot0 < 0.0)
-            {
-
-                milieu = (p1 + p2) / 2.0;
-
-                // on calcule les poids des aretes
-                double edge02Weight = sqrt(((p0 + p2) /2.0-milieu).sqrnorm() /arrete02);
-                double edge01Weight = sqrt(((p0 + p1) /2.0-milieu).sqrnorm() /arrete01);
-
-                edge_weights[v0][v2] += edge02Weight;
-                edge_weights[v2][v0] += edge02Weight;
-
-                edge_weights[v0][v1] += edge01Weight;
-                edge_weights[v1][v0] += edge01Weight;
-
-                // on calcule l'aire du triangle
+            //gestion des triangles obtus en un seul bloc
+            if (dot0 < 0.0 || dot1 < 0.0 || dot2 < 0.0) {
+                Vec3 milieu;
+                double edge01Weight = 0.0, edge02Weight = 0.0, edge12Weight = 0.0;
                 double t_area = Vec3::cross(p1-p0,p2-p0).norm()/2.0;
+                if (dot0 < 0.0) {
 
-                vertex_weights[v0] += t_area/2.0;
-                vertex_weights[v1] += t_area/4.0;
-                vertex_weights[v2] += t_area/4.0;
-            }
-            else if (dot1 < 0.0)
-            {
+                    milieu = (p1 + p2) / 2.0;
+                    edge02Weight = sqrt(((p0 + p2) /2.0-milieu).sqrnorm() /arrete02);
+                    edge01Weight = sqrt(((p0 + p1) /2.0-milieu).sqrnorm() /arrete01);
+                    
+                    edge_weights[v0][v2] += edge02Weight;
+                    edge_weights[v2][v0] += edge02Weight;
+                    edge_weights[v0][v1] += edge01Weight;
+                    edge_weights[v1][v0] += edge01Weight;
+                    vertex_weights[v0] += t_area/2.0;
+                    vertex_weights[v1] += t_area/4.0;
+                    vertex_weights[v2] += t_area/4.0;
 
-                milieu = (p0 + p2) / 2.0;
+                } else if (dot1 < 0.0) {
 
-                double edge12Weight = sqrt(((p2 + p1) /2.0-milieu).sqrnorm() /arrete12);
-                double edge01Weight = sqrt(((p0 + p1) /2.0-milieu).sqrnorm() /arrete01);
+                    milieu = (p0 + p2) / 2.0;
+                    edge12Weight = sqrt(((p2 + p1) /2.0-milieu).sqrnorm() /arrete12);
+                    edge01Weight = sqrt(((p0 + p1) /2.0-milieu).sqrnorm() /arrete01);
+                    
+                    edge_weights[v1][v2] += edge12Weight;
+                    edge_weights[v2][v1] += edge12Weight;
+                    edge_weights[v0][v1] += edge01Weight;
+                    edge_weights[v1][v0] += edge01Weight;
+                    vertex_weights[v0] += t_area/4.0;
+                    vertex_weights[v1] += t_area/2.0;
+                    vertex_weights[v2] += t_area/4.0;
 
-                edge_weights[v1][v2] += edge12Weight;
-                edge_weights[v2][v1] += edge12Weight;
+                } else { // dot2 < 0.0
 
-                edge_weights[v0][v1] += edge01Weight;
-                edge_weights[v1][v0] += edge01Weight;
-
-                double t_area = Vec3::cross(p1-p0,p2-p0).norm()/2.0;
-
-                vertex_weights[v0] += t_area/4.0;
-                vertex_weights[v1] += t_area/2.0;
-                vertex_weights[v2] += t_area/4.0;
-            }
-            else if (dot2 < 0.0)
-            {
-
-                milieu = (p0 + p1) / 2.0;
-
-                double edge12Weight = sqrt(((p2 + p1) /2.0-milieu).sqrnorm() /arrete12);
-                double edge02Weight = sqrt(((p0 + p2) /2.0-milieu).sqrnorm() /arrete02);
-
-                edge_weights[v1][v2] += edge12Weight;
-                edge_weights[v2][v1] += edge12Weight;
-
-                edge_weights[v0][v2] += edge02Weight;
-                edge_weights[v2][v0] += edge02Weight;
-
-                double t_area = Vec3::cross(p1-p0,p2-p0).norm()/2.0;
-
-                vertex_weights[v0] += t_area/4.0;
-                vertex_weights[v1] += t_area/4.0;
-                vertex_weights[v2] += t_area/2.0;
+                    milieu = (p0 + p1) / 2.0;
+                    edge12Weight = sqrt(((p2 + p1) /2.0-milieu).sqrnorm() /arrete12);
+                    edge02Weight = sqrt(((p0 + p2) /2.0-milieu).sqrnorm() /arrete02);
+                    
+                    edge_weights[v1][v2] += edge12Weight;
+                    edge_weights[v2][v1] += edge12Weight;
+                    edge_weights[v0][v2] += edge02Weight;
+                    edge_weights[v2][v0] += edge02Weight;
+                    vertex_weights[v0] += t_area/4.0;
+                    vertex_weights[v1] += t_area/4.0;
+                    vertex_weights[v2] += t_area/2.0;
+                }
             }
             else
             {
