@@ -10,7 +10,7 @@
 # NE PAS OUBLIER D'AJOUTER LA LISTE DES DEPENDANCES A LA FIN DU FICHIER
 
 CIBLE = gmini
-SRCS =  src/Camera.cpp gmini.cpp src/Trackball.cpp src/Mesh.cpp
+SRCS =  src/Camera.cpp gmini.cpp src/Trackball.cpp src/Mesh.cpp src/AStar.cpp
 LIBS =  -lglut -lGLU -lGL -lm -lpthread
 
 #########################################################"

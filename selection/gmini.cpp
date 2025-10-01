@@ -28,6 +28,7 @@
 #include "src/Mesh.h"
 #include "src/linearSystem.h"
 #include "src/LaplacianWeights.h"
+#include "src/AStar.h"
 #include "extern/eigen3/Eigen/SVD"
 #include "extern/eigen3/Eigen/Geometry"
 
@@ -55,7 +56,8 @@ enum ViewerState {
     ViewerState_NORMAL ,
     ViewerState_EDITINGHANDLE ,
     ViewerState_TRANSLATINGHANDLE ,
-    ViewerState_ROTATINGHANDLE
+    ViewerState_ROTATINGHANDLE ,
+    ViewerState_ASTAR_MODE
 };
 ViewerState viewerState;
 
@@ -73,6 +75,45 @@ RectangleSelectionTool rectangleSelectionTool;
 SphereSelectionTool sphereSelectionTool;
 float selectionRadius = 0.1f;
 
+typedef struct {
+    float r;       // ∈ [0, 1]
+    float g;       // ∈ [0, 1]
+    float b;       // ∈ [0, 1]
+} RGB;
+
+
+
+RGB scalarToRGB( float scalar_value ) //Scalar_value ∈ [0, 1]
+{
+    RGB rgb;
+    float H = scalar_value*360., S = 1., V = 0.85,
+            P, Q, T,
+            fract;
+
+    (H == 360.)?(H = 0.):(H /= 60.);
+    fract = H - floor(H);
+
+    P = V*(1. - S);
+    Q = V*(1. - S*fract);
+    T = V*(1. - S*(1. - fract));
+
+    if      (0. <= H && H < 1.)
+        rgb = (RGB){.r = V, .g = T, .b = P};
+    else if (1. <= H && H < 2.)
+        rgb = (RGB){.r = Q, .g = V, .b = P};
+    else if (2. <= H && H < 3.)
+        rgb = (RGB){.r = P, .g = V, .b = T};
+    else if (3. <= H && H < 4.)
+        rgb = (RGB){.r = P, .g = Q, .b = V};
+    else if (4. <= H && H < 5.)
+        rgb = (RGB){.r = T, .g = P, .b = V};
+    else if (5. <= H && H < 6.)
+        rgb = (RGB){.r = V, .g = P, .b = Q};
+    else
+        rgb = (RGB){.r = 0., .g = 0., .b = 0.};
+
+    return rgb;
+}
 
 // -------------------------------------------
 // ARAP variables
@@ -89,6 +130,27 @@ bool handlesWereChanged = false; // if they are changed, we need to update the s
 std::vector< bool > verticesAreMarkedForCurrentHandle;
 std::vector< int > verticesHandles;
 double spheresSize = 0.01;
+
+// -------------------------------------------
+// A* variables
+// -------------------------------------------
+AStar aStar;
+std::vector<int> currentPath;
+int pathStartVertex = -1;
+int pathEndVertex = -1;
+bool showPath = false;
+
+// Variables pour le mode A* interactif
+bool astarModeEnabled = false;
+int selectedAStarVertex = -1;
+std::vector<float> triangleWeights;    // Poids pour chaque triangle (0.0 à 1.0)
+bool weightsComputed = false;
+
+// Variables pour le mode visualisation des distances
+bool distanceVisualizationMode = false;
+std::vector<float> vertexDistances;   // Distances normalisées pour chaque sommet
+std::vector<RGB> triangleColors;      // Couleurs RGB pour chaque triangle
+bool distancesComputed = false;
 
 
 
@@ -504,9 +566,22 @@ void printUsage () {
          << " ?: Print help" << endl
          << " w: Toggle Wireframe Mode" << endl
          << " f: Toggle full screen mode" << endl
+         << " m: Toggle A* interactive mode" << endl
+         << " d: Toggle distance visualization mode" << endl
+         << " a: Compute A* path between random vertices" << endl
+         << " A: Compute A* path between vertex 0 and middle vertex" << endl
+         << " p: Toggle path display" << endl
          << " <drag>+<left button>: rotate model" << endl
          << " <drag>+<right button>: move model" << endl
-         << " <drag>+<middle button>: zoom" << endl << endl;
+         << " <drag>+<middle button>: zoom" << endl
+         << "A* Mode:" << endl
+         << " - Press 'm' to enter A* mode" << endl
+         << " - Click on mesh to select vertex and compute weights" << endl
+         << " - Triangles colored by distance (blue=far, red=close)" << endl
+         << "Distance Mode:" << endl
+         << " - Press 'd' to enter distance visualization mode" << endl
+         << " - Click on mesh to select vertex as source" << endl
+         << " - Triangles colored by geodesic distance using scalarToRGB" << endl << endl;
 }
 
 void usage () {
@@ -664,6 +739,334 @@ void drawSphere(float x,float y,float z,float radius,int slices,int stacks)
     glEnd();
 }
 
+// Fonction pour dessiner le chemin A*
+void drawPath() {
+    if (!showPath || currentPath.size() < 2) return;
+    
+    glDisable(GL_LIGHTING);
+    glLineWidth(5.0f);
+    glColor3f(1.0f, 0.0f, 0.0f); // Rouge pour le chemin
+    
+    glBegin(GL_LINE_STRIP);
+    for (int vertexId : currentPath) {
+        if (vertexId >= 0 && vertexId < (int)mesh.V.size()) {
+            const Vec3& p = mesh.V[vertexId].p;
+            glVertex3f(p[0], p[1], p[2]);
+        }
+    }
+    glEnd();
+    
+    // Dessiner les points de départ et d'arrivée
+    if (pathStartVertex >= 0 && pathStartVertex < (int)mesh.V.size()) {
+        glColor3f(0.0f, 1.0f, 0.0f); // Vert pour le départ
+        const Vec3& start = mesh.V[pathStartVertex].p;
+        drawSphere(start[0], start[1], start[2], spheresSize * 2, 10, 10);
+    }
+    
+    if (pathEndVertex >= 0 && pathEndVertex < (int)mesh.V.size()) {
+        glColor3f(1.0f, 1.0f, 0.0f); // Jaune pour l'arrivée
+        const Vec3& end = mesh.V[pathEndVertex].p;
+        drawSphere(end[0], end[1], end[2], spheresSize * 2, 10, 10);
+    }
+    
+    glLineWidth(1.0f);
+    glEnable(GL_LIGHTING);
+}
+
+// Fonction pour initialiser A* avec le mesh
+void initAStar() {
+    aStar.buildFromMesh(mesh);
+    aStar.printStats();
+}
+
+// Fonction pour trouver le sommet le plus proche d'un point 3D
+int findNearestVertex(const Vec3& point) {
+    if (mesh.V.empty()) return -1;
+    
+    int nearest = 0;
+    float minDist = (mesh.V[0].p - point).length();
+    
+    for (unsigned int i = 1; i < mesh.V.size(); i++) {
+        float dist = (mesh.V[i].p - point).length();
+        if (dist < minDist) {
+            minDist = dist;
+            nearest = i;
+        }
+    }
+    
+    return nearest;
+}
+
+// Fonction pour calculer un chemin A*
+void computeAStarPath(int start, int end) {
+    if (start < 0 || end < 0 || start >= (int)mesh.V.size() || end >= (int)mesh.V.size()) {
+        std::cout << "Invalid vertex indices for A* path!" << std::endl;
+        return;
+    }
+    
+    std::cout << "Computing A* path from vertex " << start << " to vertex " << end << "..." << std::endl;
+    
+    currentPath = aStar.findPath(start, end);
+    pathStartVertex = start;
+    pathEndVertex = end;
+    showPath = true;
+    
+    if (currentPath.empty()) {
+        std::cout << "No path found!" << std::endl;
+    } else {
+        std::cout << "Path found with " << currentPath.size() << " vertices" << std::endl;
+        std::cout << "Path: ";
+        for (int i = 0; i < (int)currentPath.size(); i++) {
+            std::cout << currentPath[i];
+            if (i < (int)currentPath.size() - 1) std::cout << " -> ";
+        }
+        std::cout << std::endl;
+    }
+}
+
+// Fonction pour calculer les poids des triangles basés sur la distance depuis un sommet
+void computeTriangleWeights(int sourceVertex) {
+    if (sourceVertex < 0 || sourceVertex >= (int)mesh.V.size()) {
+        return;
+    }
+    
+    triangleWeights.clear();
+    triangleWeights.resize(mesh.T.size(), 0.0f);
+    
+    // Calculer les distances depuis le sommet source vers tous les autres sommets
+    std::vector<float> vertexDistances(mesh.V.size(), std::numeric_limits<float>::max());
+    std::vector<bool> visited(mesh.V.size(), false);
+    
+    // Dijkstra simplifié pour calculer les distances géodésiques
+    std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>> pq;
+    
+    vertexDistances[sourceVertex] = 0.0f;
+    pq.push({0.0f, sourceVertex});
+    
+    while (!pq.empty()) {
+        float dist = pq.top().first;
+        int u = pq.top().second;
+        pq.pop();
+        
+        if (visited[u]) continue;
+        visited[u] = true;
+        
+        // Parcourir les voisins dans le graphe A*
+        std::vector<int> neighbors = aStar.getNeighbors(u);
+        for (int v : neighbors) {
+            float edgeWeight = (mesh.V[u].p - mesh.V[v].p).length();
+            float newDist = dist + edgeWeight;
+            
+            if (newDist < vertexDistances[v]) {
+                vertexDistances[v] = newDist;
+                pq.push({newDist, v});
+            }
+        }
+    }
+    
+    // Trouver la distance maximale pour normalisation
+    float maxDistance = 0.0f;
+    for (float d : vertexDistances) {
+        if (d != std::numeric_limits<float>::max() && d > maxDistance) {
+            maxDistance = d;
+        }
+    }
+    
+    // Calculer le poids de chaque triangle comme la moyenne des distances de ses sommets
+    for (unsigned int i = 0; i < mesh.T.size(); i++) {
+        float avgDistance = 0.0f;
+        int validVertices = 0;
+        
+        for (int j = 0; j < 3; j++) {
+            int vertexId = mesh.T[i].v[j];
+            if (vertexDistances[vertexId] != std::numeric_limits<float>::max()) {
+                avgDistance += vertexDistances[vertexId];
+                validVertices++;
+            }
+        }
+        
+        if (validVertices > 0) {
+            avgDistance /= validVertices;
+            // Normaliser entre 0.0 et 1.0 (inversé pour que proche = poids élevé)
+            triangleWeights[i] = maxDistance > 0 ? (1.0f - avgDistance / maxDistance) : 1.0f;
+        } else {
+            triangleWeights[i] = 0.0f;
+        }
+    }
+    
+    weightsComputed = true;
+    std::cout << "Triangle weights computed from vertex " << sourceVertex << std::endl;
+}
+
+// Fonction pour calculer les distances normalisées et les couleurs des triangles
+void computeDistanceVisualization(int sourceVertex) {
+    if (sourceVertex < 0 || sourceVertex >= (int)mesh.V.size()) {
+        return;
+    }
+    
+    // Réinitialiser les conteneurs
+    vertexDistances.clear();
+    vertexDistances.resize(mesh.V.size(), std::numeric_limits<float>::max());
+    triangleColors.clear();
+    triangleColors.resize(mesh.T.size());
+    
+    // Calculer les distances géodésiques avec Dijkstra
+    std::vector<bool> visited(mesh.V.size(), false);
+    std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>> pq;
+    
+    vertexDistances[sourceVertex] = 0.0f;
+    pq.push({0.0f, sourceVertex});
+    
+    while (!pq.empty()) {
+        float dist = pq.top().first;
+        int u = pq.top().second;
+        pq.pop();
+        
+        if (visited[u]) continue;
+        visited[u] = true;
+        
+        // Parcourir les voisins
+        std::vector<int> neighbors = aStar.getNeighbors(u);
+        for (int v : neighbors) {
+            float edgeWeight = (mesh.V[u].p - mesh.V[v].p).length();
+            float newDist = dist + edgeWeight;
+            
+            if (newDist < vertexDistances[v]) {
+                vertexDistances[v] = newDist;
+                pq.push({newDist, v});
+            }
+        }
+    }
+    
+    // Trouver la distance maximale pour normalisation
+    float maxDistance = 0.0f;
+    for (float d : vertexDistances) {
+        if (d != std::numeric_limits<float>::max() && d > maxDistance) {
+            maxDistance = d;
+        }
+    }
+    
+    // Normaliser les distances entre 0.0 et 1.0
+    if (maxDistance > 0) {
+        for (float& d : vertexDistances) {
+            if (d != std::numeric_limits<float>::max()) {
+                d = d / maxDistance;
+            } else {
+                d = 1.0f; // Distance maximale pour les sommets non connectés
+            }
+        }
+    }
+    
+    // Calculer la couleur de chaque triangle basée sur la distance moyenne de ses sommets
+    for (unsigned int i = 0; i < mesh.T.size(); i++) {
+        float avgDistance = 0.0f;
+        int validVertices = 0;
+        
+        for (int j = 0; j < 3; j++) {
+            int vertexId = mesh.T[i].v[j];
+            if (vertexDistances[vertexId] != std::numeric_limits<float>::max()) {
+                avgDistance += vertexDistances[vertexId];
+                validVertices++;
+            }
+        }
+        
+        if (validVertices > 0) {
+            avgDistance /= validVertices;
+            // Utiliser scalarToRGB pour obtenir la couleur
+            triangleColors[i] = scalarToRGB(avgDistance);
+        } else {
+            // Couleur par défaut pour les triangles non connectés
+            triangleColors[i] = (RGB){.r = 0.5f, .g = 0.5f, .b = 0.5f};
+        }
+    }
+    
+    distancesComputed = true;
+    std::cout << "Distance visualization computed from vertex " << sourceVertex << std::endl;
+    std::cout << "Max distance: " << maxDistance << std::endl;
+}
+
+// Fonction pour obtenir les coordonnées 3D à partir des coordonnées écran
+Vec3 getWorldCoordinates(int x, int y) {
+    // Conversion des coordonnées écran vers le monde 3D
+    GLint viewport[4];
+    GLdouble modelview[16];
+    GLdouble projection[16];
+    GLfloat winX, winY, winZ;
+    GLdouble posX, posY, posZ;
+    
+    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    
+    winX = (float)x;
+    winY = (float)viewport[3] - (float)y; // Inverser Y
+    glReadPixels(x, int(winY), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ);
+    
+    gluUnProject(winX, winY, winZ, modelview, projection, viewport, &posX, &posY, &posZ);
+    
+    return Vec3(posX, posY, posZ);
+}
+
+// Fonction pour sélectionner le sommet le plus proche du clic
+int selectVertexFromClick(int x, int y) {
+    Vec3 clickPos = getWorldCoordinates(x, y);
+    return findNearestVertex(clickPos);
+}
+
+// Fonction pour dessiner le mesh avec les poids des triangles
+void drawMeshWithWeights() {
+    if (!weightsComputed || triangleWeights.size() != mesh.T.size()) {
+        // Dessiner normalement si pas de poids
+        glColor3f(0.4, 0.4, 0.8);
+        mesh.draw();
+        return;
+    }
+    
+    glBegin(GL_TRIANGLES);
+    for (unsigned int i = 0; i < mesh.T.size(); i++) {
+        // Utiliser le poids pour définir la couleur
+        float weight = triangleWeights[i];
+        
+        // Gradient de couleur : bleu (poids faible) vers rouge (poids élevé)
+        float r = weight;           // Rouge augmente avec le poids
+        float g = 0.2f;            // Vert constant
+        float b = 1.0f - weight;   // Bleu diminue avec le poids
+        
+        glColor3f(r, g, b);
+        
+        for (unsigned int j = 0; j < 3; j++) {
+            const MeshVertex& v = mesh.V[mesh.T[i].v[j]];
+            glNormal3f(v.n[0], v.n[1], v.n[2]);
+            glVertex3f(v.p[0], v.p[1], v.p[2]);
+        }
+    }
+    glEnd();
+}
+
+// Fonction pour dessiner le mesh avec les couleurs de distance
+void drawMeshWithDistanceColors() {
+    if (!distancesComputed || triangleColors.size() != mesh.T.size()) {
+        // Dessiner normalement si pas de couleurs calculées
+        glColor3f(0.4, 0.4, 0.8);
+        mesh.draw();
+        return;
+    }
+    
+    glBegin(GL_TRIANGLES);
+    for (unsigned int i = 0; i < mesh.T.size(); i++) {
+        // Utiliser la couleur précalculée pour ce triangle
+        RGB color = triangleColors[i];
+        glColor3f(color.r, color.g, color.b);
+        
+        for (unsigned int j = 0; j < 3; j++) {
+            const MeshVertex& v = mesh.V[mesh.T[i].v[j]];
+            glNormal3f(v.n[0], v.n[1], v.n[2]);
+            glVertex3f(v.p[0], v.p[1], v.p[2]);
+        }
+    }
+    glEnd();
+}
+
 void drawHandles() {
     glEnable(GL_LIGHTING);
     glColor3f(0.2,0.2,0.2);
@@ -696,9 +1099,28 @@ void draw () {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_LIGHTING);
     glDisable(GL_BLEND);
-    glColor3f(0.4,0.4,0.8);
-    mesh.draw();
+    
+    // Dessiner le mesh selon le mode actif
+    if (distanceVisualizationMode && distancesComputed) {
+        drawMeshWithDistanceColors();
+    } else if (astarModeEnabled && weightsComputed) {
+        drawMeshWithWeights();
+    } else {
+        glColor3f(0.4,0.4,0.8); //color mesh
+        mesh.draw();
+    }
+    
+    // Dessiner le sommet sélectionné en mode A* ou visualisation de distance
+    if ((astarModeEnabled || distanceVisualizationMode) && selectedAStarVertex >= 0 && selectedAStarVertex < (int)mesh.V.size()) {
+        glDisable(GL_LIGHTING);
+        glColor3f(1.0f, 1.0f, 0.0f); // Jaune pour le sommet sélectionné
+        const Vec3& pos = mesh.V[selectedAStarVertex].p;
+        drawSphere(pos[0], pos[1], pos[2], spheresSize * 3, 10, 10);
+        glEnable(GL_LIGHTING);
+    }
+    
     drawHandles();
+    drawPath();  // Dessiner le chemin A*
     rectangleSelectionTool.draw();
     sphereSelectionTool.draw();
 }
@@ -875,6 +1297,64 @@ void key (unsigned char keyPressed, int x, int y) {
         }
         break;
 
+    case 'm':
+        // Toggle mode A* interactif
+        astarModeEnabled = !astarModeEnabled;
+        if (astarModeEnabled) {
+            viewerState = ViewerState_ASTAR_MODE;
+            printf("A* interactive mode ENABLED - Click on a vertex to compute weights\n");
+        } else {
+            viewerState = ViewerState_NORMAL;
+            selectedAStarVertex = -1;
+            weightsComputed = false;
+            printf("A* interactive mode DISABLED\n");
+        }
+        break;
+
+    case 'd':
+        // Toggle mode visualisation des distances
+        distanceVisualizationMode = !distanceVisualizationMode;
+        if (distanceVisualizationMode) {
+            // Désactiver le mode A* s'il était actif
+            astarModeEnabled = false;
+            viewerState = ViewerState_NORMAL;
+            printf("Distance visualization mode ENABLED - Click on a vertex to see distances\n");
+        } else {
+            selectedAStarVertex = -1;
+            distancesComputed = false;
+            printf("Distance visualization mode DISABLED\n");
+        }
+        break;
+
+    case 'a':
+        // Test A* entre deux sommets aléatoires
+        if (viewerState == ViewerState_NORMAL && mesh.V.size() > 1) {
+            int start = rand() % mesh.V.size();
+            int end = rand() % mesh.V.size();
+            while (end == start && mesh.V.size() > 1) {
+                end = rand() % mesh.V.size();
+            }
+            computeAStarPath(start, end);
+            printf("A* path computed from vertex %d to vertex %d\n", start, end);
+        }
+        break;
+
+    case 'A':
+        // Test A* spécifique (sommets 0 et N/2)
+        if (viewerState == ViewerState_NORMAL && mesh.V.size() > 1) {
+            int start = 0;
+            int end = mesh.V.size() / 2;
+            computeAStarPath(start, end);
+            printf("A* path computed from vertex %d to vertex %d\n", start, end);
+        }
+        break;
+
+    case 'p':
+        // Toggle affichage du chemin
+        showPath = !showPath;
+        printf("Path display: %s\n", showPath ? "ON" : "OFF");
+        break;
+
     default:
         printUsage ();
         break;
@@ -884,6 +1364,30 @@ void key (unsigned char keyPressed, int x, int y) {
 
 
 void mouse (int button, int state, int x, int y) {
+    // Gestion du mode A* interactif
+    if (astarModeEnabled && state == GLUT_DOWN && button == GLUT_LEFT_BUTTON) {
+        int clickedVertex = selectVertexFromClick(x, y);
+        if (clickedVertex >= 0) {
+            selectedAStarVertex = clickedVertex;
+            computeTriangleWeights(clickedVertex);
+            std::cout << "Selected vertex " << clickedVertex << " for A* mode" << std::endl;
+            idle();
+            return;
+        }
+    }
+    
+    // Gestion du mode visualisation des distances
+    if (distanceVisualizationMode && state == GLUT_DOWN && button == GLUT_LEFT_BUTTON) {
+        int clickedVertex = selectVertexFromClick(x, y);
+        if (clickedVertex >= 0) {
+            selectedAStarVertex = clickedVertex;
+            computeDistanceVisualization(clickedVertex);
+            std::cout << "Selected vertex " << clickedVertex << " for distance visualization" << std::endl;
+            idle();
+            return;
+        }
+    }
+    
     if( glutGetModifiers() & GLUT_ACTIVE_CTRL    ||   rectangleSelectionTool.isActive ) { // we can activate the selection only with ctrl pressed
         if( viewerState == ViewerState_EDITINGHANDLE ) {
             if (state == GLUT_UP) {
@@ -1006,13 +1510,16 @@ int main (int argc, char ** argv) {
     glutSpecialFunc(SpecialInput);
     key ('?', 0, 0);
 
-    mesh.loadOFF(argc == 2 ? argv[1] : "models/arma.off");
+    mesh.loadOFF(argc == 2 ? argv[1] : "models/SeaMonster.off");
     verticesAreMarkedForCurrentHandle.resize( mesh.V.size() , false );
     verticesHandles.resize( mesh.V.size() , -1 );
     edgeAndVertexWeights.buildCotangentWeightsOfTriangleMesh( mesh);
     Eigen::MatrixXd idMatrix(3,3);
     idMatrix(0,0) = 1.0;   idMatrix(1,1) = 1.0;   idMatrix(2,2) = 1.0;
     vertexRotationMatrices.resize( mesh.V.size() , idMatrix );
+    
+    // Initialiser A* avec le mesh
+    initAStar();
 
     glutMainLoop ();
     return EXIT_SUCCESS;
