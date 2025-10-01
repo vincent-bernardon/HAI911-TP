@@ -360,21 +360,51 @@ void rotateActiveHandle( Vec3 const & rotationAxis , double angle ) {
 
 void get3DPosFromMouseInput(int x, int y, float &posX, float &posY, float &posZ)
 {
+    // get the 3D position from the mouse input
+    GLint viewport[4];
+    GLdouble modelview[16];
+    GLdouble projection[16];
+    GLfloat winX, winY, winZ;
+    GLdouble posX3D, posY3D, posZ3D;
+
+    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    winX = (float)x;
+    winY = (float)viewport[3] - (float)y;
+    glReadPixels(x, int(winY), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ);
+
+    gluUnProject(winX, winY, winZ, modelview, projection, viewport, &posX3D, &posY3D, &posZ3D);
+
+    posX = (float)posX3D;
+    posY = (float)posY3D;
+    posZ = (float)posZ3D;
 }
 
 void setTagForVerticesInSphere(bool tagToSet)
 {
     // check if vertices are inside the sphere
+    for(unsigned int v = 0; v < mesh.V.size(); ++v)
+    {
+        Vec3 const & p = mesh.V[v].p;
+        if (sphereSelectionTool.contains(p))
+            verticesAreMarkedForCurrentHandle[v] = tagToSet;
+    }
+
 }
 
 void updateSphereRadiusWithScroll(int button)
 {
     if(button == 3) //scroll up
     {
+        selectionRadius *= 1.1f;
+        sphereSelectionTool.updateSphere(selectionRadius);
     }
     else if(button == 4) //scroll down
     {
-        
+        selectionRadius *= 0.9f;
+        sphereSelectionTool.updateSphere(selectionRadius);
     }
 
 }
@@ -670,6 +700,7 @@ void draw () {
     mesh.draw();
     drawHandles();
     rectangleSelectionTool.draw();
+    sphereSelectionTool.draw();
 }
 
 void display () {
@@ -809,6 +840,7 @@ void key (unsigned char keyPressed, int x, int y) {
             viewerState = ViewerState_EDITINGHANDLE;
             ++numberOfHandles;
             activeHandle = numberOfHandles - 1; // last handle
+            printf("        Editing handle %d\n",activeHandle);
         }
         break;
 
@@ -816,6 +848,7 @@ void key (unsigned char keyPressed, int x, int y) {
         if( viewerState == ViewerState_NORMAL   ||   viewerState == ViewerState_ROTATINGHANDLE ) {
             if( activeHandleIsValid() ) {
                 viewerState = ViewerState_TRANSLATINGHANDLE;
+                printf("    Translating handle %d\n",activeHandle);
             }
         }
         break;
@@ -824,6 +857,7 @@ void key (unsigned char keyPressed, int x, int y) {
         if( viewerState == ViewerState_NORMAL   ||   viewerState == ViewerState_TRANSLATINGHANDLE ) {
             if( activeHandleIsValid() ) {
                 viewerState = ViewerState_ROTATINGHANDLE;
+                printf("    Rotating handle %d\n",activeHandle);
             }
         }
         break;
@@ -832,10 +866,12 @@ void key (unsigned char keyPressed, int x, int y) {
         if(selectionToolState == SelectionTool_Rectangle)
         {
             selectionToolState = SelectionTool_Sphere;
+            printf("Sphere selection tool activated (scroll to change radius)\n");
         }
         else if(selectionToolState == SelectionTool_Sphere)
         {
             selectionToolState = SelectionTool_Rectangle;
+            printf("Rectangle selection tool activated\n");
         }
         break;
 
