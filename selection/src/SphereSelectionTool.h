@@ -42,7 +42,7 @@ struct SphereSelectionTool
 	void draw() {
 	    if(!isActive) return;
 	    // draw Sphere
-		glColor3f(1.0f, 1.0f, 1.0f);
+		glColor3f(0.5f, 0.2f, 0.4f);
 		glPushMatrix();
 		glTranslatef(center[0], center[1], center[2]);
 		glutWireSphere(radius, 20, 20);
