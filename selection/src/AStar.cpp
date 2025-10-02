@@ -11,7 +11,7 @@ void AStar::buildFromMesh(const Mesh& mesh) {
         addNode(i, mesh.V[i].p);
     }
     
-    // Utiliser un set pour éviter les arêtes dupliquées
+    //set pour éviter les arêtes dupliquées
     std::set<std::pair<int, int>> edges;
     
     // Ajouter les arêtes basées sur les triangles

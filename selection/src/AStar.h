@@ -169,6 +169,65 @@ public:
         return std::vector<int>();
     }
     
+    // Calcule la distance géodésique entre deux points
+    float getGeodesicDistance(int startId, int goalId) const {
+        // Vérifier que les nœuds existent
+        if (nodePositions.find(startId) == nodePositions.end() || 
+            nodePositions.find(goalId) == nodePositions.end()) {
+            return std::numeric_limits<float>::max();
+        }
+        
+        // Si c'est le même point, distance = 0
+        if (startId == goalId) {
+            return 0.0f;
+        }
+        
+        // Utiliser Dijkstra pour trouver la plus courte distance
+        std::unordered_map<int, float> distances;
+        std::unordered_set<int> visited;
+        std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>> pq;
+        
+        // Initialiser les distances
+        for (const auto& pair : nodePositions) {
+            distances[pair.first] = std::numeric_limits<float>::max();
+        }
+        distances[startId] = 0.0f;
+        pq.push({0.0f, startId});
+        
+        while (!pq.empty()) {
+            float dist = pq.top().first;
+            int u = pq.top().second;
+            pq.pop();
+            
+            // Si on a trouvé la destination, retourner la distance
+            if (u == goalId) {
+                return dist;
+            }
+            
+            if (visited.find(u) != visited.end()) continue;
+            visited.insert(u);
+            
+            // Explorer les voisins
+            auto neighbors = adjacencyList.find(u);
+            if (neighbors != adjacencyList.end()) {
+                for (int v : neighbors->second) {
+                    if (visited.find(v) == visited.end()) {
+                        float edgeWeight = getDistance(u, v);
+                        float newDist = dist + edgeWeight;
+                        
+                        if (newDist < distances[v]) {
+                            distances[v] = newDist;
+                            pq.push({newDist, v});
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Si aucun chemin trouvé
+        return std::numeric_limits<float>::max();
+    }
+    
     // Affiche les statistiques du graphe
     void printStats() const {
         std::cout << "Graph stats:" << std::endl;

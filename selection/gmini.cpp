@@ -152,7 +152,7 @@ std::vector<float> vertexDistances;   // Distances normalisées pour chaque somm
 std::vector<RGB> triangleColors;      // Couleurs RGB pour chaque triangle
 bool distancesComputed = false;
 
-
+bool geodesicDistancesComputed = false;
 
 
 
@@ -446,13 +446,45 @@ void get3DPosFromMouseInput(int x, int y, float &posX, float &posY, float &posZ)
 
 void setTagForVerticesInSphere(bool tagToSet)
 {
-    // check if vertices are inside the sphere
-    for(unsigned int v = 0; v < mesh.V.size(); ++v)
+    if(geodesicDistancesComputed)
     {
-        Vec3 const & p = mesh.V[v].p;
-        if (sphereSelectionTool.contains(p))
-            verticesAreMarkedForCurrentHandle[v] = tagToSet;
+        printf("Using geodesic distances for selection\n");
+        Vec3 sphereCenter;
+        sphereCenter = sphereSelectionTool.center;
+
+        //trouver son indice dans le tableau des sommets
+        int centerVertexIndex = -1;
+        float minDist = 1e30;
+        for(unsigned int v = 0; v < mesh.V.size(); ++v)
+        {
+            float dist = (mesh.V[v].p - sphereCenter).norm();
+            if(dist < minDist)
+            {
+                minDist = dist;
+                centerVertexIndex = v;
+            }
+        }
+
+        for(unsigned int v = 0; v < mesh.V.size(); ++v)
+        {
+            Vec3 const & p = mesh.V[v].p;
+            float geodesicDist = aStar.getGeodesicDistance(centerVertexIndex, v);
+            if (sphereSelectionTool.contains(p) && geodesicDist <= selectionRadius){
+                verticesAreMarkedForCurrentHandle[v] = tagToSet;
+            }
+        }
+
+    }else{
+        printf("Using euclidean distances for selection\n");
+        // check if vertices are inside the sphere
+        for(unsigned int v = 0; v < mesh.V.size(); ++v)
+        {
+            Vec3 const & p = mesh.V[v].p;
+            if (sphereSelectionTool.contains(p))
+                verticesAreMarkedForCurrentHandle[v] = tagToSet;
+        }
     }
+
 
 }
 
@@ -1110,14 +1142,14 @@ void draw () {
         mesh.draw();
     }
     
-    // Dessiner le sommet sélectionné en mode A* ou visualisation de distance
-    if ((astarModeEnabled || distanceVisualizationMode) && selectedAStarVertex >= 0 && selectedAStarVertex < (int)mesh.V.size()) {
-        glDisable(GL_LIGHTING);
-        glColor3f(1.0f, 1.0f, 0.0f); // Jaune pour le sommet sélectionné
-        const Vec3& pos = mesh.V[selectedAStarVertex].p;
-        drawSphere(pos[0], pos[1], pos[2], spheresSize * 3, 10, 10);
-        glEnable(GL_LIGHTING);
-    }
+    //si on veux voir les points sélectionnées
+    // if ((astarModeEnabled || distanceVisualizationMode) && selectedAStarVertex >= 0 && selectedAStarVertex < (int)mesh.V.size()) {
+    //     glDisable(GL_LIGHTING);
+    //     glColor3f(1.0f, 1.0f, 0.0f); // Jaune pour le sommet sélectionné
+    //     const Vec3& pos = mesh.V[selectedAStarVertex].p;
+    //     drawSphere(pos[0], pos[1], pos[2], spheresSize * 3, 10, 10);
+    //     glEnable(GL_LIGHTING);
+    // }
     
     drawHandles();
     drawPath();  // Dessiner le chemin A*
@@ -1326,6 +1358,13 @@ void key (unsigned char keyPressed, int x, int y) {
         }
         break;
 
+    case 'D':
+        // fusion de d et de la sphère afin de sélectionner uniquement les handles géodésiques
+        //donc il faut que la disantance des handles soit plus petite que radius au point centre de la sphère
+        geodesicDistancesComputed = !geodesicDistancesComputed;
+        printf("Geodesic distances for handle selection: %s\n", geodesicDistancesComputed ? "ON" : "OFF");
+        break;
+
     case 'a':
         // Test A* entre deux sommets aléatoires
         if (viewerState == ViewerState_NORMAL && mesh.V.size() > 1) {
@@ -1510,7 +1549,7 @@ int main (int argc, char ** argv) {
     glutSpecialFunc(SpecialInput);
     key ('?', 0, 0);
 
-    mesh.loadOFF(argc == 2 ? argv[1] : "models/SeaMonster.off");
+    mesh.loadOFF(argc == 2 ? argv[1] : "models/arma.off");
     verticesAreMarkedForCurrentHandle.resize( mesh.V.size() , false );
     verticesHandles.resize( mesh.V.size() , -1 );
     edgeAndVertexWeights.buildCotangentWeightsOfTriangleMesh( mesh);
