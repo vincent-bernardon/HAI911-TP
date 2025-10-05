@@ -41,6 +41,7 @@ using namespace std;
 // Function prototypes
 // -------------------------------------------
 void computeGeodesicVisualization(int sourceVertex);
+void computeNormalVisualization(int sourceVertex);
 
 // -------------------------------------------
 // OpenGL/GLUT application code.
@@ -168,6 +169,11 @@ int geodesicSourceVertex = -1;                // Sommet source pour la visualisa
 
 bool normalVariation = false;
 float threshold = 0.5f; //seuil d'aceptence 
+
+// Variables pour la visualisation des normales
+std::vector<RGB> normalVisualizationColors;      // Couleurs pour la visualisation des normales
+bool normalVisualizationComputed = false;
+int normalVisualizationSourceVertex = -1;        // Sommet source pour la visualisation des normales
 
 
 
@@ -478,6 +484,9 @@ void setTagForVerticesInSphere(bool tagToSet)
 
         //récupéré la normale du point central
         Vec3 centerNormal = mesh.V[centerVertexIndex].n;
+
+        // Calculer la visualisation des normales pour ce centre
+        computeNormalVisualization(centerVertexIndex);
 
         for(unsigned int v = 0; v < mesh.V.size(); ++v)
         {
@@ -1163,6 +1172,61 @@ void computeGeodesicVisualization(int sourceVertex) {
     std::cout << "Max geodesic distance: " << maxDistance << std::endl;
 }
 
+// Fonction pour calculer la visualisation des différences de normales
+void computeNormalVisualization(int sourceVertex) {
+    if (sourceVertex < 0 || sourceVertex >= (int)mesh.V.size()) {
+        return;
+    }
+    
+    normalVisualizationColors.clear();
+    normalVisualizationColors.resize(mesh.T.size());
+    
+    Vec3 sourceNormal = mesh.V[sourceVertex].n;
+    
+    // Calculer les différences de normales pour chaque triangle
+    float maxDifference = 0.0f;
+    std::vector<float> triangleNormalDifferences(mesh.T.size());
+    
+    for (unsigned int i = 0; i < mesh.T.size(); i++) {
+        float avgDifference = 0.0f;
+        
+        // Calculer la différence moyenne des normales des 3 sommets du triangle
+        for (int j = 0; j < 3; j++) {
+            int vertexId = mesh.T[i].v[j];
+            Vec3 vertexNormal = mesh.V[vertexId].n;
+            float difference = (sourceNormal - vertexNormal).norm();
+            avgDifference += difference;
+        }
+        avgDifference /= 3.0f;
+        
+        triangleNormalDifferences[i] = avgDifference;
+        if (avgDifference > maxDifference) {
+            maxDifference = avgDifference;
+        }
+    }
+    
+    // Normaliser et assigner les couleurs selon le seuil
+    for (unsigned int i = 0; i < mesh.T.size(); i++) {
+        float difference = triangleNormalDifferences[i];
+        
+        if (difference <= threshold) {
+            // Vert : normales similaires (< seuil)
+            normalVisualizationColors[i] = (RGB){.r = 0.0f, .g = 1.0f, .b = 0.0f};
+        } else if (difference <= threshold * 2.0f) {
+            // Jaune : normales modérément différentes (entre seuil et 2*seuil)
+            normalVisualizationColors[i] = (RGB){.r = 1.0f, .g = 1.0f, .b = 0.0f};
+        } else {
+            // Rouge : normales très différentes (> 2*seuil)
+            normalVisualizationColors[i] = (RGB){.r = 1.0f, .g = 0.0f, .b = 0.0f};
+        }
+    }
+    
+    normalVisualizationComputed = true;
+    normalVisualizationSourceVertex = sourceVertex;
+    std::cout << "Normal visualization computed from vertex " << sourceVertex << std::endl;
+    std::cout << "Threshold: " << threshold << ", Max normal difference: " << maxDifference << std::endl;
+}
+
 // Fonction pour obtenir les coordonnées 3D à partir des coordonnées écran
 Vec3 getWorldCoordinates(int x, int y) {
     // Conversion des coordonnées écran vers le monde 3D
@@ -1269,6 +1333,30 @@ void drawMeshWithGeodesicColors() {
     glEnd();
 }
 
+// Fonction pour dessiner le mesh avec les couleurs de différence de normales
+void drawMeshWithNormalColors() {
+    if (!normalVisualizationComputed || normalVisualizationColors.size() != mesh.T.size()) {
+        // Dessiner normalement si pas de couleurs calculées
+        glColor3f(0.4, 0.4, 0.8);
+        mesh.draw();
+        return;
+    }
+    
+    glBegin(GL_TRIANGLES);
+    for (unsigned int i = 0; i < mesh.T.size(); i++) {
+        // Utiliser la couleur précalculée pour ce triangle
+        RGB color = normalVisualizationColors[i];
+        glColor3f(color.r, color.g, color.b);
+        
+        for (unsigned int j = 0; j < 3; j++) {
+            const MeshVertex& v = mesh.V[mesh.T[i].v[j]];
+            glNormal3f(v.n[0], v.n[1], v.n[2]);
+            glVertex3f(v.p[0], v.p[1], v.p[2]);
+        }
+    }
+    glEnd();
+}
+
 void drawHandles() {
     glEnable(GL_LIGHTING);
     glColor3f(0.2,0.2,0.2);
@@ -1303,7 +1391,9 @@ void draw () {
     glDisable(GL_BLEND);
     
     // Dessiner le mesh selon le mode actif
-    if (geodesicVisualizationComputed && geodesicDistancesComputed) {
+    if (normalVisualizationComputed && normalVariation) {
+        drawMeshWithNormalColors();
+    } else if (geodesicVisualizationComputed && geodesicDistancesComputed) {
         drawMeshWithGeodesicColors();
     } else if (distanceVisualizationMode && distancesComputed) {
         drawMeshWithDistanceColors();
@@ -1546,9 +1636,10 @@ void key (unsigned char keyPressed, int x, int y) {
     
     case 'N':
         normalVariation = !normalVariation;
-        // if(geodesicDistancesComputed) {
-        //     geodesicDistancesComputed = false;
-        // }
+        if (!normalVariation) {
+            // Désactiver aussi la visualisation quand on désactive la sélection par normales
+            normalVisualizationComputed = false;
+        }
         printf("Normal variation for handle selection: %s\n", normalVariation ? "ON" : "OFF");
         break;
 
