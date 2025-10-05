@@ -1205,18 +1205,18 @@ void computeNormalVisualization(int sourceVertex) {
         }
     }
     
-    // Normaliser et assigner les couleurs selon le seuil
+    // Assigner les couleurs selon le seuil
     for (unsigned int i = 0; i < mesh.T.size(); i++) {
         float difference = triangleNormalDifferences[i];
         
-        if (difference <= threshold) {
-            // Vert : normales similaires (< seuil)
+        if (difference < threshold - 0.05f) {
+            // Vert : normales très similaires (< seuil - 0.05)
             normalVisualizationColors[i] = (RGB){.r = 0.0f, .g = 1.0f, .b = 0.0f};
-        } else if (difference <= threshold * 2.0f) {
-            // Jaune : normales modérément différentes (entre seuil et 2*seuil)
+        } else if (difference <= threshold) {
+            // Jaune : normales proches du seuil (seuil - 0.05 <= différence <= seuil)
             normalVisualizationColors[i] = (RGB){.r = 1.0f, .g = 1.0f, .b = 0.0f};
         } else {
-            // Rouge : normales très différentes (> 2*seuil)
+            // Rouge : normales différentes (> seuil)
             normalVisualizationColors[i] = (RGB){.r = 1.0f, .g = 0.0f, .b = 0.0f};
         }
     }
