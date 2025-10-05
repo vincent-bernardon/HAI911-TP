@@ -38,6 +38,11 @@ using namespace std;
 #define GLUT_KEY_ESCAPE 27
 
 // -------------------------------------------
+// Function prototypes
+// -------------------------------------------
+void computeGeodesicVisualization(int sourceVertex);
+
+// -------------------------------------------
 // OpenGL/GLUT application code.
 // -------------------------------------------
 
@@ -153,6 +158,11 @@ std::vector<RGB> triangleColors;      // Couleurs RGB pour chaque triangle
 bool distancesComputed = false;
 
 bool geodesicDistancesComputed = false;
+// Variables pour la visualisation des distances géodésiques lors de la sélection
+std::vector<float> geodesicVertexDistances;   // Distances géodésiques normalisées
+std::vector<RGB> geodesicTriangleColors;      // Couleurs RGB pour les triangles géodésiques
+bool geodesicVisualizationComputed = false;
+int geodesicSourceVertex = -1;                // Sommet source pour la visualisation géodésique
 
 
 
@@ -464,6 +474,9 @@ void setTagForVerticesInSphere(bool tagToSet)
                 centerVertexIndex = v;
             }
         }
+
+        // Calculer la visualisation des distances géodésiques pour ce centre
+        computeGeodesicVisualization(centerVertexIndex);
 
         for(unsigned int v = 0; v < mesh.V.size(); ++v)
         {
@@ -1017,6 +1030,94 @@ void computeDistanceVisualization(int sourceVertex) {
     std::cout << "Max distance: " << maxDistance << std::endl;
 }
 
+// Fonction pour calculer la visualisation des distances géodésiques lors de la sélection
+void computeGeodesicVisualization(int sourceVertex) {
+    if (sourceVertex < 0 || sourceVertex >= (int)mesh.V.size()) {
+        return;
+    }
+    
+    // Réinitialiser les conteneurs
+    geodesicVertexDistances.clear();
+    geodesicVertexDistances.resize(mesh.V.size(), std::numeric_limits<float>::max());
+    geodesicTriangleColors.clear();
+    geodesicTriangleColors.resize(mesh.T.size());
+    
+    // Calculer les distances géodésiques avec Dijkstra
+    std::vector<bool> visited(mesh.V.size(), false);
+    std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>> pq;
+    
+    geodesicVertexDistances[sourceVertex] = 0.0f;
+    pq.push({0.0f, sourceVertex});
+    
+    while (!pq.empty()) {
+        float dist = pq.top().first;
+        int u = pq.top().second;
+        pq.pop();
+        
+        if (visited[u]) continue;
+        visited[u] = true;
+        
+        // Parcourir les voisins
+        std::vector<int> neighbors = aStar.getNeighbors(u);
+        for (int v : neighbors) {
+            float edgeWeight = (mesh.V[u].p - mesh.V[v].p).length();
+            float newDist = dist + edgeWeight;
+            
+            if (newDist < geodesicVertexDistances[v]) {
+                geodesicVertexDistances[v] = newDist;
+                pq.push({newDist, v});
+            }
+        }
+    }
+    
+    // Trouver la distance maximale pour normalisation
+    float maxDistance = 0.0f;
+    for (float d : geodesicVertexDistances) {
+        if (d != std::numeric_limits<float>::max() && d > maxDistance) {
+            maxDistance = d;
+        }
+    }
+    
+    // Normaliser les distances entre 0.0 et 1.0
+    if (maxDistance > 0) {
+        for (float& d : geodesicVertexDistances) {
+            if (d != std::numeric_limits<float>::max()) {
+                d = d / maxDistance;
+            } else {
+                d = 1.0f; // Distance maximale pour les sommets non connectés
+            }
+        }
+    }
+    
+    // Calculer la couleur de chaque triangle basée sur la distance moyenne de ses sommets
+    for (unsigned int i = 0; i < mesh.T.size(); i++) {
+        float avgDistance = 0.0f;
+        int validVertices = 0;
+        
+        for (int j = 0; j < 3; j++) {
+            int vertexId = mesh.T[i].v[j];
+            if (geodesicVertexDistances[vertexId] != std::numeric_limits<float>::max()) {
+                avgDistance += geodesicVertexDistances[vertexId];
+                validVertices++;
+            }
+        }
+        
+        if (validVertices > 0) {
+            avgDistance /= validVertices;
+            // Utiliser scalarToRGB pour obtenir la couleur
+            geodesicTriangleColors[i] = scalarToRGB(avgDistance);
+        } else {
+            // Couleur par défaut pour les triangles non connectés
+            geodesicTriangleColors[i] = (RGB){.r = 0.5f, .g = 0.5f, .b = 0.5f};
+        }
+    }
+    
+    geodesicVisualizationComputed = true;
+    geodesicSourceVertex = sourceVertex;
+    std::cout << "Geodesic visualization computed from vertex " << sourceVertex << std::endl;
+    std::cout << "Max geodesic distance: " << maxDistance << std::endl;
+}
+
 // Fonction pour obtenir les coordonnées 3D à partir des coordonnées écran
 Vec3 getWorldCoordinates(int x, int y) {
     // Conversion des coordonnées écran vers le monde 3D
@@ -1099,6 +1200,30 @@ void drawMeshWithDistanceColors() {
     glEnd();
 }
 
+// Fonction pour dessiner le mesh avec les couleurs de distance géodésique
+void drawMeshWithGeodesicColors() {
+    if (!geodesicVisualizationComputed || geodesicTriangleColors.size() != mesh.T.size()) {
+        // Dessiner normalement si pas de couleurs calculées
+        glColor3f(0.4, 0.4, 0.8);
+        mesh.draw();
+        return;
+    }
+    
+    glBegin(GL_TRIANGLES);
+    for (unsigned int i = 0; i < mesh.T.size(); i++) {
+        // Utiliser la couleur précalculée pour ce triangle
+        RGB color = geodesicTriangleColors[i];
+        glColor3f(color.r, color.g, color.b);
+        
+        for (unsigned int j = 0; j < 3; j++) {
+            const MeshVertex& v = mesh.V[mesh.T[i].v[j]];
+            glNormal3f(v.n[0], v.n[1], v.n[2]);
+            glVertex3f(v.p[0], v.p[1], v.p[2]);
+        }
+    }
+    glEnd();
+}
+
 void drawHandles() {
     glEnable(GL_LIGHTING);
     glColor3f(0.2,0.2,0.2);
@@ -1133,7 +1258,9 @@ void draw () {
     glDisable(GL_BLEND);
     
     // Dessiner le mesh selon le mode actif
-    if (distanceVisualizationMode && distancesComputed) {
+    if (geodesicVisualizationComputed && geodesicDistancesComputed) {
+        drawMeshWithGeodesicColors();
+    } else if (distanceVisualizationMode && distancesComputed) {
         drawMeshWithDistanceColors();
     } else if (astarModeEnabled && weightsComputed) {
         drawMeshWithWeights();
@@ -1362,6 +1489,10 @@ void key (unsigned char keyPressed, int x, int y) {
         // fusion de d et de la sphère afin de sélectionner uniquement les handles géodésiques
         //donc il faut que la disantance des handles soit plus petite que radius au point centre de la sphère
         geodesicDistancesComputed = !geodesicDistancesComputed;
+        if (!geodesicDistancesComputed) {
+            // Désactiver aussi la visualisation quand on désactive la sélection géodésique
+            geodesicVisualizationComputed = false;
+        }
         printf("Geodesic distances for handle selection: %s\n", geodesicDistancesComputed ? "ON" : "OFF");
         break;
 
