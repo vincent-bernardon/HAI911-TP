@@ -77,6 +77,7 @@ SelectionToolState selectionToolState;
 RectangleSelectionTool rectangleSelectionTool;
 
 #include "src/SphereSelectionTool.h"
+#include <cfloat>
 SphereSelectionTool sphereSelectionTool;
 float selectionRadius = 0.1f;
 
@@ -165,7 +166,8 @@ bool geodesicVisualizationComputed = false;
 int geodesicSourceVertex = -1;                // Sommet source pour la visualisation géodésique
 
 
-
+bool normalVariation = false;
+float threshold = 0.5f; //seuil d'aceptence 
 
 
 
@@ -456,8 +458,43 @@ void get3DPosFromMouseInput(int x, int y, float &posX, float &posY, float &posZ)
 
 void setTagForVerticesInSphere(bool tagToSet)
 {
-    if(geodesicDistancesComputed)
-    {
+    if(normalVariation){
+        printf("Using normal variation for selection\n");
+        Vec3 sphereCenter;
+        sphereCenter = sphereSelectionTool.center;
+
+        //trouvé le sommet le plus proche du centre de la sphère
+        int centerVertexIndex = -1;
+        float minDist = FLT_MAX;
+        for(unsigned int v = 0; v < mesh.V.size(); ++v)
+        {
+            float dist = (mesh.V[v].p - sphereCenter).norm();
+            if(dist < minDist)
+            {
+                minDist = dist;
+                centerVertexIndex = v;
+            }
+        }
+
+        //récupéré la normale du point central
+        Vec3 centerNormal = mesh.V[centerVertexIndex].n;
+
+        for(unsigned int v = 0; v < mesh.V.size(); ++v)
+        {
+            Vec3 const & p = mesh.V[v].p;
+            if (sphereSelectionTool.contains(p))
+            {
+                Vec3 currentNormal = mesh.V[v].n;
+                float normalDifference = (centerNormal - currentNormal).norm();
+
+                if (normalDifference <= threshold)
+                {
+                    verticesAreMarkedForCurrentHandle[v] = tagToSet;
+                }
+            }
+        }
+
+    }else if(geodesicDistancesComputed){
         printf("Using geodesic distances for selection\n");
         Vec3 sphereCenter;
         sphereCenter = sphereSelectionTool.center;
@@ -613,6 +650,10 @@ void printUsage () {
          << " f: Toggle full screen mode" << endl
          << " m: Toggle A* interactive mode" << endl
          << " d: Toggle distance visualization mode" << endl
+         << " D: Toggle geodesic distance selection" << endl
+         << " N: Toggle normal variation selection" << endl
+         << " +: Increase normal threshold" << endl
+         << " -: Decrease normal threshold" << endl
          << " a: Compute A* path between random vertices" << endl
          << " A: Compute A* path between vertex 0 and middle vertex" << endl
          << " p: Toggle path display" << endl
@@ -626,7 +667,11 @@ void printUsage () {
          << "Distance Mode:" << endl
          << " - Press 'd' to enter distance visualization mode" << endl
          << " - Click on mesh to select vertex as source" << endl
-         << " - Triangles colored by geodesic distance using scalarToRGB" << endl << endl;
+         << " - Triangles colored by geodesic distance using scalarToRGB" << endl
+         << "Selection Modes:" << endl
+         << " - Press 'D' for geodesic distance-based selection" << endl
+         << " - Press 'N' for normal variation-based selection" << endl
+         << " - Use +/- to adjust normal threshold (current: " << threshold << ")" << endl << endl;
 }
 
 void usage () {
@@ -1489,11 +1534,38 @@ void key (unsigned char keyPressed, int x, int y) {
         // fusion de d et de la sphère afin de sélectionner uniquement les handles géodésiques
         //donc il faut que la disantance des handles soit plus petite que radius au point centre de la sphère
         geodesicDistancesComputed = !geodesicDistancesComputed;
+        // if(normalVariation) {
+        //     normalVariation = false;
+        // }
         if (!geodesicDistancesComputed) {
             // Désactiver aussi la visualisation quand on désactive la sélection géodésique
             geodesicVisualizationComputed = false;
         }
         printf("Geodesic distances for handle selection: %s\n", geodesicDistancesComputed ? "ON" : "OFF");
+        break;
+    
+    case 'N':
+        normalVariation = !normalVariation;
+        // if(geodesicDistancesComputed) {
+        //     geodesicDistancesComputed = false;
+        // }
+        printf("Normal variation for handle selection: %s\n", normalVariation ? "ON" : "OFF");
+        break;
+
+    case '+':
+    case '=':
+        //augmenté le seuil de normale
+        threshold += 0.05f;
+        if (threshold > 2.0f) threshold = 2.0f;
+        printf("Normal threshold increased to: %.3f\n", threshold);
+        break;
+
+    case '6':
+    case '-':
+        //diminué le seuil de normale
+        threshold -= 0.05f;
+        if (threshold < 0.0f) threshold = 0.0f;
+        printf("Normal threshold decreased to: %.3f\n", threshold);
         break;
 
     case 'a':
