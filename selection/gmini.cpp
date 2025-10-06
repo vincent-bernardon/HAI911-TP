@@ -485,7 +485,7 @@ void setTagForVerticesInSphere(bool tagToSet)
         //récupéré la normale du point central
         Vec3 centerNormal = mesh.V[centerVertexIndex].n;
 
-        // Calculer la visualisation des normales pour ce centre
+        //calculer la visualisation des normales pour ce centre
         computeNormalVisualization(centerVertexIndex);
 
         for(unsigned int v = 0; v < mesh.V.size(); ++v)
@@ -521,7 +521,7 @@ void setTagForVerticesInSphere(bool tagToSet)
             }
         }
 
-        // Calculer la visualisation des distances géodésiques pour ce centre
+        //calculer la visualisation des distances géodésiques pour ce centre
         computeGeodesicVisualization(centerVertexIndex);
 
         for(unsigned int v = 0; v < mesh.V.size(); ++v)
@@ -1009,7 +1009,7 @@ void computeDistanceVisualization(int sourceVertex) {
     triangleColors.clear();
     triangleColors.resize(mesh.T.size());
     
-    // Calculer les distances géodésiques avec Dijkstra
+    //calcul les distances géodésiques avec A*
     std::vector<bool> visited(mesh.V.size(), false);
     std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>> pq;
     
@@ -1024,7 +1024,7 @@ void computeDistanceVisualization(int sourceVertex) {
         if (visited[u]) continue;
         visited[u] = true;
         
-        // Parcourir les voisins
+        //parcourir les voisins
         std::vector<int> neighbors = aStar.getNeighbors(u);
         for (int v : neighbors) {
             float edgeWeight = (mesh.V[u].p - mesh.V[v].p).length();
@@ -1055,8 +1055,8 @@ void computeDistanceVisualization(int sourceVertex) {
             }
         }
     }
+    //calcul de la couleur de chaque triangle basé sur la distance moyenne de ces sommets
     
-    // Calculer la couleur de chaque triangle basée sur la distance moyenne de ses sommets
     for (unsigned int i = 0; i < mesh.T.size(); i++) {
         float avgDistance = 0.0f;
         int validVertices = 0;
@@ -1071,7 +1071,7 @@ void computeDistanceVisualization(int sourceVertex) {
         
         if (validVertices > 0) {
             avgDistance /= validVertices;
-            // Utiliser scalarToRGB pour obtenir la couleur
+            //utiliséé scalarToRGB pour obtenir la couleur
             triangleColors[i] = scalarToRGB(avgDistance);
         } else {
             // Couleur par défaut pour les triangles non connectés
@@ -1096,7 +1096,7 @@ void computeGeodesicVisualization(int sourceVertex) {
     geodesicTriangleColors.clear();
     geodesicTriangleColors.resize(mesh.T.size());
     
-    // Calculer les distances géodésiques avec Dijkstra
+    // Calculer les distances géodésiques avec A*
     std::vector<bool> visited(mesh.V.size(), false);
     std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>> pq;
     
@@ -1111,14 +1111,14 @@ void computeGeodesicVisualization(int sourceVertex) {
         if (visited[u]) continue;
         visited[u] = true;
         
-        // Parcourir les voisins
+        //parcourir les voisins
         std::vector<int> neighbors = aStar.getNeighbors(u);
         for (int v : neighbors) {
-            float edgeWeight = (mesh.V[u].p - mesh.V[v].p).length();
+            float edgeWeight = (mesh.V[u].p-mesh.V[v].p).length();
             float newDist = dist + edgeWeight;
             
             if (newDist < geodesicVertexDistances[v]) {
-                geodesicVertexDistances[v] = newDist;
+                geodesicVertexDistances[v]= newDist;
                 pq.push({newDist, v});
             }
         }
@@ -1143,7 +1143,7 @@ void computeGeodesicVisualization(int sourceVertex) {
         }
     }
     
-    // Calculer la couleur de chaque triangle basée sur la distance moyenne de ses sommets
+    //calcul de la couleur de chaque triangle basé sur la distance moyenne de ces sommets
     for (unsigned int i = 0; i < mesh.T.size(); i++) {
         float avgDistance = 0.0f;
         int validVertices = 0;
@@ -1151,6 +1151,7 @@ void computeGeodesicVisualization(int sourceVertex) {
         for (int j = 0; j < 3; j++) {
             int vertexId = mesh.T[i].v[j];
             if (geodesicVertexDistances[vertexId] != std::numeric_limits<float>::max()) {
+                
                 avgDistance += geodesicVertexDistances[vertexId];
                 validVertices++;
             }
@@ -1158,7 +1159,7 @@ void computeGeodesicVisualization(int sourceVertex) {
         
         if (validVertices > 0) {
             avgDistance /= validVertices;
-            // Utiliser scalarToRGB pour obtenir la couleur
+            //utiliséé scalarToRGB pour obtenir la couleur
             geodesicTriangleColors[i] = scalarToRGB(avgDistance);
         } else {
             // Couleur par défaut pour les triangles non connectés
@@ -1183,14 +1184,14 @@ void computeNormalVisualization(int sourceVertex) {
     
     Vec3 sourceNormal = mesh.V[sourceVertex].n;
     
-    // Calculer les différences de normales pour chaque triangle
+    //calcul des différence de normale pour chaque triangle
     float maxDifference = 0.0f;
     std::vector<float> triangleNormalDifferences(mesh.T.size());
     
     for (unsigned int i = 0; i < mesh.T.size(); i++) {
         float avgDifference = 0.0f;
         
-        // Calculer la différence moyenne des normales des 3 sommets du triangle
+        //calculer la différence moyenne des normales des 3 sommets du triangle
         for (int j = 0; j < 3; j++) {
             int vertexId = mesh.T[i].v[j];
             Vec3 vertexNormal = mesh.V[vertexId].n;
@@ -1205,18 +1206,18 @@ void computeNormalVisualization(int sourceVertex) {
         }
     }
     
-    // Assigner les couleurs selon le seuil
+    //couleur selon la diff avec le seuil
     for (unsigned int i = 0; i < mesh.T.size(); i++) {
         float difference = triangleNormalDifferences[i];
         
         if (difference < threshold - 0.05f) {
-            // Vert : normales très similaires (< seuil - 0.05)
+            //vert : normales très similaires (< seuil - 0.05)
             normalVisualizationColors[i] = (RGB){.r = 0.0f, .g = 1.0f, .b = 0.0f};
         } else if (difference <= threshold) {
-            // Jaune : normales proches du seuil (seuil - 0.05 <= différence <= seuil)
+            //jaune : normales proches du seuil (seuil - 0.05 <= différence <= seuil)
             normalVisualizationColors[i] = (RGB){.r = 1.0f, .g = 1.0f, .b = 0.0f};
         } else {
-            // Rouge : normales différentes (> seuil)
+            //rouge : normales différentes (> seuil)
             normalVisualizationColors[i] = (RGB){.r = 1.0f, .g = 0.0f, .b = 0.0f};
         }
     }
