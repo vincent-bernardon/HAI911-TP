@@ -446,8 +446,8 @@ void Texture::build(const std::vector<unsigned char> & data, const std::vector<u
         QColor color = labelsToColor[greyValue];
 
         rgbTexture[4*i+0] = color.red();
-        rgbTexture[4*i+1] = color.blue();
-        rgbTexture[4*i+2] = color.green();
+        rgbTexture[4*i+1] = color.green();
+        rgbTexture[4*i+2] = color.blue();
         rgbTexture[4*i+3] = color.alpha();
     }
 

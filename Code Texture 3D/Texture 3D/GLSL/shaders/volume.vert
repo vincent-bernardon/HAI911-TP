@@ -34,8 +34,6 @@ void main()
 	position = gl_Vertex.xyz;
 
 	//Todo : compute textCoord
-	textCoord = vec3( (position.x + xMax) / (2.0 * xMax),
-					  (position.y + yMax) / (2.0 * yMax),
-					  (position.z + zMax) / (2.0 * zMax));
+	textCoord = gl_Vertex.xyz / vec3(xMax, yMax, zMax);
 
 }
