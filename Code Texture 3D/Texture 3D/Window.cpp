@@ -43,6 +43,18 @@ Window::Window()
 
     //TODO : Connect madDockWidget signals to viewer slots
 
+    connect(madDockWidget, &TextureDockWidget::xValueChanged, viewer, &TextureViewer::setXCut);
+    connect(madDockWidget, &TextureDockWidget::yValueChanged, viewer, &TextureViewer::setYCut);
+    connect(madDockWidget, &TextureDockWidget::zValueChanged, viewer, &TextureViewer::setZCut);
+
+    connect(madDockWidget, &TextureDockWidget::xInvert, viewer, &TextureViewer::invertXCut);
+    connect(madDockWidget, &TextureDockWidget::yInvert, viewer, &TextureViewer::invertYCut);
+    connect(madDockWidget, &TextureDockWidget::zInvert, viewer, &TextureViewer::invertZCut);
+    
+    connect(madDockWidget, &TextureDockWidget::xDisplay, viewer, &TextureViewer::setXCutDisplay);
+    connect(madDockWidget, &TextureDockWidget::yDisplay, viewer, &TextureViewer::setYCutDisplay);
+    connect(madDockWidget, &TextureDockWidget::zDisplay, viewer, &TextureViewer::setZCutDisplay);
+    
 
 
 
