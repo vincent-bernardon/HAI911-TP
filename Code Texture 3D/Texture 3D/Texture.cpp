@@ -238,6 +238,14 @@ void Texture::initTexture(){
     glBindTexture(GL_TEXTURE_3D, textureId);
 
 	//TODO complete texture options
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16.0f);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    
 
 
 
@@ -417,8 +425,17 @@ void Texture::build(const std::vector<unsigned char> & data, const std::vector<u
 
     rgbTexture = new unsigned char[n[0]*n[1]*n[2]*4];
 
-    //int greyValue = data[i];
-    //QColor color = labelsToColor[greyValue];
+    for(int i = 0; i < n[0]*n[1]*n[2]; i++){
+        int greyValue = data[i];
+        QColor color = labelsToColor[greyValue];
+
+        rgbTexture[4*i+0] = color.red();
+        rgbTexture[4*i+1] = color.blue();
+        rgbTexture[4*i+2] = color.green();
+        rgbTexture[4*i+3] = color.alpha();
+    }
+
+    
 
 
 
