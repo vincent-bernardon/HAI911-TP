@@ -20,16 +20,19 @@ Window::Window()
     gridLayout->addWidget(viewer, 0, 1, 1, 1);
 
     QAction * actionLoad3Dimage = new QAction("Load 3D image", this);
+    QAction * actionLoadMesh = new QAction("Load mesh", this);
     QAction * recompileShaders = new QAction("Recompile shaders", this);
 
 
     QMenu * menuFile = new QMenu("File", this);
 
     menuFile->addAction(actionLoad3Dimage);
+    menuFile->addAction(actionLoadMesh);
 
 
 
     connect(actionLoad3Dimage, SIGNAL(triggered()), this, SLOT(open3DImage()));
+    connect(actionLoadMesh, SIGNAL(triggered()), this, SLOT(openOffMesh3D()));
 
     connect(recompileShaders, &QAction::triggered, viewer, &TextureViewer::recompileShaders);
 
@@ -50,7 +53,7 @@ Window::Window()
     connect(madDockWidget, &TextureDockWidget::xInvert, viewer, &TextureViewer::invertXCut);
     connect(madDockWidget, &TextureDockWidget::yInvert, viewer, &TextureViewer::invertYCut);
     connect(madDockWidget, &TextureDockWidget::zInvert, viewer, &TextureViewer::invertZCut);
-    
+
     connect(madDockWidget, &TextureDockWidget::xDisplay, viewer, &TextureViewer::setXCutDisplay);
     connect(madDockWidget, &TextureDockWidget::yDisplay, viewer, &TextureViewer::setYCutDisplay);
     connect(madDockWidget, &TextureDockWidget::zDisplay, viewer, &TextureViewer::setZCutDisplay);
@@ -95,6 +98,33 @@ void Window::open3DImage(){
     if(fileName.endsWith(".dim") || fileName.endsWith(".nii") ){
         viewer->open3DImage(fileName);
         statusBar()->showMessage("3D image opened");
+
+    }
+
+}
+
+void Window::openOffMesh3D(){
+
+    QString selectedFilter, openFileNameLabel;
+    QString fileFilter = "Known Filetypes (*.off);;OFF (*.off)";
+
+    QString fileName = QFileDialog::getOpenFileName(this,
+                                                    tr("Select an input OFF mesh"),
+                                                    openFileNameLabel,
+                                                    fileFilter,
+                                                    &selectedFilter);
+
+    // In case of Cancel
+    if ( fileName.isEmpty() ) {
+        return;
+    }
+
+    statusBar()->showMessage("Opening OFF mesh...");
+    if(fileName.endsWith(".off") ){
+        viewer->openOffMesh(fileName);
+        statusBar()->showMessage("OFF mesh opened");
+        
+        
 
     }
 

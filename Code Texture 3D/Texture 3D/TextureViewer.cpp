@@ -22,6 +22,7 @@ void TextureViewer::draw(){
     camera()->setSceneRadius(1000);
 
     texture->draw(camera());
+        drawMesh();
 }
 
 void TextureViewer::drawClippingPlane(){
@@ -212,6 +213,49 @@ void TextureViewer::openOffMesh(const QString &fileName) {
             myfile.close();
             exit(1);
         }
+    }
+
+    myfile.close();
+
+    if(imageLoaded){
+        //calculer le bounding box du mesh
+        qglviewer::Vec minV( FLT_MAX, FLT_MAX, FLT_MAX);
+        qglviewer::Vec maxV(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+        for(int i=0; i<vertices.size(); i++){
+            if(vertices[i].x < minV.x) minV.x = vertices[i].x;
+            if(vertices[i].y < minV.y) minV.y = vertices[i].y;
+            if(vertices[i].z < minV.z) minV.z = vertices[i].z;
+
+            if(vertices[i].x > maxV.x) maxV.x = vertices[i].x;
+            if(vertices[i].y > maxV.y) maxV.y = vertices[i].y;
+            if(vertices[i].z > maxV.z) maxV.z = vertices[i].z;
+        }
+
+        // Redimensionner le mesh pour qu'il occupe le même espace que la texture 3D
+        float xMaxTex = texture->getXMax();
+        float yMaxTex = texture->getYMax();
+        float zMaxTex = texture->getZMax();
+
+        float xMinTex = 0.f;
+        float yMinTex = 0.f;
+        float zMinTex = 0.f;
+
+        //rapport d'échelle entre le mesh et la texture
+        float sx = (xMaxTex - xMinTex) / (maxV.x - minV.x);
+        float sy = (yMaxTex - yMinTex) / (maxV.y - minV.y);
+        float sz = (zMaxTex - zMinTex) / (maxV.z - minV.z);
+
+        float scale = std::min(sx, std::min(sy, sz));
+
+        for(auto& v : vertices){
+            v.x = (v.x - minV.x) * scale + xMinTex;
+            v.y = (v.y - minV.y) * scale + yMinTex;
+            v.z = (v.z - minV.z) * scale + zMinTex;
+        }
+        updateCamera(qglviewer::Vec(xMaxTex/2., yMaxTex/2., zMaxTex/2.) , sqrt(xMaxTex*xMaxTex + yMaxTex*yMaxTex + zMaxTex*zMaxTex)/2. );
+
+
+
     }
 
 }

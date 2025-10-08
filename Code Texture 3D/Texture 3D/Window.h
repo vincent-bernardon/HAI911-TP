@@ -15,6 +15,7 @@ class Window : public QMainWindow
 public:
     Window();
 
+
 private:
     TextureDockWidget *madDockWidget;
     TextureViewer * viewer;
@@ -22,6 +23,8 @@ private:
 
 public slots:
     void open3DImage();
+    void openOffMesh3D();
+
   };
 
 
