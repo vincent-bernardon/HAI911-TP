@@ -2,17 +2,31 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "qmake",
+            "type": "shell",
+            "command": "qmake",
+            "args": ["Texture3D.pro"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
             "label": "build",
             "type": "shell",
             "command": "make",
+            "args": ["-j"],
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
+            "dependsOn": "qmake",
             "presentation": {
                 "echo": true,
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
             },
             "problemMatcher": "$gcc"
         },
@@ -26,7 +40,7 @@
         {
             "label": "run",
             "type": "shell",
-            "command": "./TP1",
+            "command": "./texture3D",
             "dependsOn": "build",
             "group": "test"
         }

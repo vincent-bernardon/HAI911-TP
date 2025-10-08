@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch TP1",
+            "name": "Launch Texture3D",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/TP1",
+            "program": "${workspaceFolder}/texture3D",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
