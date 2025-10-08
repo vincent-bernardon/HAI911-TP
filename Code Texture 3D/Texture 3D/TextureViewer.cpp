@@ -252,8 +252,6 @@ void TextureViewer::openOffMesh(const QString &fileName) {
             v.y = (v.y - minV.y) * scale + yMinTex;
             v.z = (v.z - minV.z) * scale + zMinTex;
         }
-        updateCamera(qglviewer::Vec(xMaxTex/2., yMaxTex/2., zMaxTex/2.) , sqrt(xMaxTex*xMaxTex + yMaxTex*yMaxTex + zMaxTex*zMaxTex)/2. );
-
 
 
     }
