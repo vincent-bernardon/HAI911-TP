@@ -35,7 +35,9 @@ bool ComputeVisibility(vec3 point){
 	vec3 zCut = vec3(0., 0.,zCutPosition);
 
 	//TODO compute visibility
-	
+	if(dot(point - xCut, x) < 0.) return false;
+	if(dot(point - yCut, y) < 0.) return false;
+	if(dot(point - zCut, z) < 0.) return false;
 
 	return true;
 }

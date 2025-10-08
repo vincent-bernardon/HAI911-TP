@@ -308,7 +308,7 @@ void Texture::draw( const qglviewer::Camera * camera ){
 
     /***********************************************************************/
 
-    drawBoundingBox(false);
+    drawBoundingBox(true);
     drawCutPlanes();
 
 }
