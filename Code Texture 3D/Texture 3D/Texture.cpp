@@ -238,14 +238,9 @@ void Texture::initTexture(){
     glBindTexture(GL_TEXTURE_3D, textureId);
 
 	//TODO complete texture options
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16.0f);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    
+
 
 
 
@@ -286,8 +281,29 @@ void Texture::draw( const qglviewer::Camera * camera ){
     ////Parameters to given to the shader // TODO complete
     /***********************************************************************/
 
+    //xMax
+    glFunctions->glUniform1f(glFunctions->glGetUniformLocation(programID, "xMax"), xMax);
+    //yMax
+    glFunctions->glUniform1f(glFunctions->glGetUniformLocation(programID, "yMax"), yMax);
+    //zMax
+    glFunctions->glUniform1f(glFunctions->glGetUniformLocation(programID, "zMax"), zMax);
 
+    //xCutPosition
+    glFunctions->glUniform1f(glFunctions->glGetUniformLocation(programID, "xCutPosition"), xCutPosition);
+    //yCutPosition
+    glFunctions->glUniform1f(glFunctions->glGetUniformLocation(programID, "yCutPosition"), yCutPosition);
+    //zCutPosition
+    glFunctions->glUniform1f(glFunctions->glGetUniformLocation(programID, "zCutPosition"), zCutPosition);
 
+    //xCutDirection
+    glFunctions->glUniform1i(glFunctions->glGetUniformLocation(programID, "xCutDirection"), xCutDirection);
+    //yCutDirection
+    glFunctions->glUniform1i(glFunctions->glGetUniformLocation(programID, "yCutDirection"), yCutDirection);
+    //zCutDirection 
+    glFunctions->glUniform1i(glFunctions->glGetUniformLocation(programID, "zCutDirection"), zCutDirection);
+
+    glBindTexture(GL_TEXTURE_3D, textureId);
+    glActiveTexture(GL_TEXTURE0);
 
 
     /***********************************************************************/
@@ -448,6 +464,9 @@ void Texture::build(const std::vector<unsigned char> & data, const std::vector<u
 
 
     initTexture();
+
+    glBindTexture(GL_TEXTURE_3D, textureId);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, n[0], n[1], n[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, rgbTexture);
 }
 
 
