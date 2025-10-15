@@ -31,17 +31,17 @@ void ParticleSystemWindow::initialize() {
     particles.resize(numParticles);
     for (auto& p : particles) p.init();
     // Créer le Storage Buffer Object (SSBO)
-    glGenBuffers(1, &ssbo);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+    gl43->glGenBuffers(1, &ssbo);
+    gl43->glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
 
     // Allouer et remplir le SSBO avec les données des particules
-    glBufferData(GL_SHADER_STORAGE_BUFFER, particles.size() * sizeof(Particle), particles.data(), GL_DYNAMIC_DRAW);
+    gl43->glBufferData(GL_SHADER_STORAGE_BUFFER, particles.size() * sizeof(Particle), particles.data(), GL_DYNAMIC_DRAW);
 
     // Lier le SSBO au binding point 0 (doit correspondre au shader)
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+    gl43->glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
 
     // Désactiver le buffer
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    gl43->glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     vbo.create();
     m_camera.setAspectRatio(width() / float(height()));
