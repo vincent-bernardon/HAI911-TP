@@ -9,8 +9,13 @@
 #include <QOpenGLFunctions_4_3_Core>
 #include <QDateTime>
 #include <QOpenGLTexture>
+#include <QElapsedTimer>
+
+QElapsedTimer frameTimer;
 
 void ParticleSystemWindow::initialize() {
+    frameTimer.start();
+
     m_context = new QOpenGLContext(this);
     m_context->create();
 
@@ -25,11 +30,20 @@ void ParticleSystemWindow::initialize() {
 
     particles.resize(numParticles);
     for (auto& p : particles) p.init();
+    // Créer le Storage Buffer Object (SSBO)
+    glGenBuffers(1, &ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+
+    // Allouer et remplir le SSBO avec les données des particules
+    glBufferData(GL_SHADER_STORAGE_BUFFER, particles.size() * sizeof(Particle), particles.data(), GL_DYNAMIC_DRAW);
+
+    // Lier le SSBO au binding point 0 (doit correspondre au shader)
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+
+    // Désactiver le buffer
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     vbo.create();
-    /*vbo.bind();
-    vbo.allocate(numParticles * 3 * sizeof(GLfloat));
-*/
     m_camera.setAspectRatio(width() / float(height()));
 
     program = new QOpenGLShaderProgram(this);
@@ -60,6 +74,13 @@ void ParticleSystemWindow::initialize() {
 
     glEnable(GL_PROGRAM_POINT_SIZE);
     glPointSize(5.0f);
+
+    // Charger et lier le compute shader
+    computeProgram = new QOpenGLShaderProgram(this);
+    computeProgram->addShaderFromSourceFile(QOpenGLShader::Compute, "../shaders/particle.comp");
+    if (!computeProgram->link()) {
+        qDebug() << "Failed to link compute shader:" << computeProgram->log();
+    }
 }
 
 void ParticleSystemWindow::render() {
@@ -69,24 +90,51 @@ void ParticleSystemWindow::render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(1.f, 1.0f, 1.0f, 1.0f);
 
-    particlePositions.clear();
-    particlePositions.reserve(numParticles * 3);
-    for (auto& p : particles) {
-        p.animate();
-        particlePositions.push_back(p.pos.x());
-        particlePositions.push_back(p.pos.y());
-        particlePositions.push_back(p.pos.z());
-    }
+    // Calculer dt en secondes
+    float dt = frameTimer.elapsed() / 1000.0f;
+    frameTimer.restart(); // Redémarrer le timer pour la prochaine frame
 
-    vbo.bind();
-    vbo.allocate(particlePositions.data(), particlePositions.size() * sizeof(GLfloat) * 3);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-    glEnableVertexAttribArray(0);
+    // particlePositions.clear();
+    // particlePositions.reserve(numParticles * 3);
+    // for (auto& p : particles) {
+    //     p.animate(dt);
+    //     particlePositions.push_back(p.pos.x());
+    //     particlePositions.push_back(p.pos.y());
+    //     particlePositions.push_back(p.pos.z());
+    // }
 
-    program->bind();
+    // vbo.bind();
+    // vbo.allocate(particlePositions.data(), particlePositions.size() * sizeof(GLfloat) * 3);
+    // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+    // glEnableVertexAttribArray(0);
+
+    // program->bind();
     
+    // QMatrix4x4 mvp = m_camera.projectionMatrix() * m_camera.viewMatrix();
+    // program->setUniformValue(matrixUniform, mvp);
+
+    // glDrawArrays(GL_POINTS, 0, numParticles);
+
+    // Utiliser le compute shader pour mettre à jour les particules
+    computeProgram->bind();
+    glUniform1f(glGetUniformLocation(computeProgram->programId(), "dt"), dt);
+
+    // Lancer les calculs avec glDispatchCompute
+    gl43->glDispatchCompute((numParticles + 255) / 256, 1, 1);
+
+    // Synchroniser les accès mémoire pour s'assurer que les calculs sont terminés
+    gl43->glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+    computeProgram->release();
+
+    // Rendre les particules
+    program->bind();
     QMatrix4x4 mvp = m_camera.projectionMatrix() * m_camera.viewMatrix();
     program->setUniformValue(matrixUniform, mvp);
+
+    glBindBuffer(GL_ARRAY_BUFFER, ssbo);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), nullptr);
+    glEnableVertexAttribArray(0);
 
     glDrawArrays(GL_POINTS, 0, numParticles);
 

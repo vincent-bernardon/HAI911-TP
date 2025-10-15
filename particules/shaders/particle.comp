@@ -1,1 +1,65 @@
 /* Compute Shader for Particle System */
+#version 430
+
+// Taille du groupe de travail
+layout(local_size_x = 256) in;
+
+// Structures des données des particules
+struct Particle {
+    vec4 pos;       // Position de la particule (alignée sur 16 octets)
+    vec4 speed;     // Vitesse de la particule (alignée sur 16 octets)
+    float age;      // Âge de la particule (aligné sur 4 octets)
+    float ageMax;   // Durée de vie maximale de la particule (aligné sur 4 octets)
+    vec2 padding;   // Padding pour aligner la structure sur 16 octets
+                    // total = 16 + 16 + 4 + 4 + 8 = 48 octets
+};
+
+// Buffer des particules
+layout(std430, binding = 0) buffer ParticleBuffer {
+    Particle particles[];
+};
+
+// Uniformes
+uniform float dt;
+
+// Constantes
+const vec3 gravity = vec3(0.0, 0.0, -9.8);
+
+// Fonction d'initialisation d'une particule
+void initParticle(inout Particle p) {
+    p.pos = vec4(0.0, 0.0, 0.0, 1.0); // Ajouter un w = 1.0 pour vec4
+    float angle = 2.0 * 3.14159265359 * float(gl_GlobalInvocationID.x) / 256.0;
+    float norm = 0.5 * fract(sin(float(gl_GlobalInvocationID.x)) * 43758.5453);
+    p.speed = vec4(norm * cos(angle), norm * sin(angle), 2.0 + fract(cos(float(gl_GlobalInvocationID.x)) * 43758.5453) * 1.5, 0.0);
+    p.age = 0.0;
+    p.ageMax = 2.0 + fract(sin(float(gl_GlobalInvocationID.x)) * 43758.5453) * 3.0;
+}
+
+// Fonction principale
+void main() {
+    uint id = gl_GlobalInvocationID.x; // Identifiant unique de la particule
+
+    // Récupérer la particule actuelle
+    Particle p = particles[id];
+
+    // Mettre à jour la particule
+    p.speed.xyz += gravity * dt; // Mise à jour de la vitesse avec la gravité
+    p.pos.xyz += p.speed.xyz * dt;   // Mise à jour de la position avec la vitesse
+
+    // Gestion des rebonds
+    if (p.pos.z < 0.0) {
+        p.pos.z = 0.0;
+        p.speed.z *= -0.6; // Coefficient de rebond
+    }
+
+    // Mise à jour de l'âge
+    p.age += dt;
+
+    // Réinitialiser la particule si elle dépasse son âge maximal
+    if (p.age >= p.ageMax) {
+        initParticle(p);
+    }
+
+    // Écrire les données mises à jour dans le buffer
+    particles[id] = p;
+}
