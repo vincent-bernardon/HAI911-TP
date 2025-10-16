@@ -27,7 +27,7 @@ QOpenGLShaderProgram* computeProgram = nullptr;
     QOpenGLBuffer vbo;
 GLuint ssbo;
     QOpenGLShaderProgram* program = nullptr;
-    QOpenGLFunctions_4_3_Core* gl43 = nullptr;
+QOpenGLFunctions_4_3_Core* gl43 = nullptr;
     GLint matrixUniform = -1;
 
     const int numParticles = 2000;

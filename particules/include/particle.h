@@ -4,7 +4,9 @@
 #include <cmath>
 struct Particle {
     QVector3D pos;
+    float padding0 = 0.0f; //a mettre car dans le compute shader on utilise vec4
     QVector3D speed;
+    float padding1 = 0.0f; //a mettre car dans le compute shader on utilise vec4
     float age = 0.0f;
     float ageMax = 100.0f;
     float padding[2];
