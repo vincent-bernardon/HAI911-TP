@@ -53,8 +53,8 @@ void ParticleSystemWindow::initialize() {
     program->link();
     program->bind();
 
-    unsigned char * data = nullptr;
-    int imgWidth, imgHeight, imgChannels;
+    // unsigned char * data = nullptr;
+    // int imgWidth, imgHeight, imgChannels;
     // data = stbi_load("../data/smoke.png", &imgWidth, &imgHeight, &imgChannels, 0);
 
     QImage img("../data/smoke.png");
