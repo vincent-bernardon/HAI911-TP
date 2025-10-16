@@ -10,6 +10,8 @@
 #include <QDateTime>
 #include <QOpenGLTexture>
 #include <QElapsedTimer>
+#include <iostream>
+#include <cstddef> // Pour offsetof
 
 QElapsedTimer frameTimer;
 
@@ -133,10 +135,22 @@ void ParticleSystemWindow::render() {
     program->setUniformValue(matrixUniform, mvp);
 
     glBindBuffer(GL_ARRAY_BUFFER, ssbo);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), nullptr);
+    //pose de particule
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, pos));
     glEnableVertexAttribArray(0);
 
+    //couelur de particule 
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)(offsetof(Particle, color)));
+    glEnableVertexAttribArray(1);
+
     glDrawArrays(GL_POINTS, 0, numParticles);
+
+    // std::cout << "Size of Particle: " << sizeof(Particle) << " bytes\n";
+    // std::cout << "Offset of pos: " << offsetof(Particle, pos) << " bytes\n";
+    // std::cout << "Offset of speed: " << offsetof(Particle, speed) << " bytes\n";
+    // std::cout << "Offset of age: " << offsetof(Particle, age) << " bytes\n";
+    // std::cout << "Offset of ageMax: " << offsetof(Particle, ageMax) << " bytes\n";
+    // std::cout << "Offset of color: " << offsetof(Particle, color) << " bytes\n";
 
     program->release();
 }

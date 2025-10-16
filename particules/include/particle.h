@@ -3,13 +3,13 @@
 #include <QVector3D>
 #include <cmath>
 struct Particle {
-    QVector3D pos;
-    float fill0 = 0.0f; //a mettre car dans le compute shader on utilise vec4
-    QVector3D speed;
-    float fill1 = 0.0f; //a mettre car dans le compute shader on utilise vec4
-    float age = 0.0f;
-    float ageMax = 100.0f;
-    float padding[2];
+    QVector4D pos; // poid : 16
+    QVector4D speed; // poid : 16
+    float age = 0.0f; // poid : 4
+    float ageMax = 100.0f; // poid : 4
+    QVector4D color; // poid : 16
+    QVector4D padding; // poid : 16 pour l'alignement
+    //total : 16+16+4+4+16+16 = 72 octets
 
     void init() {
         pos = QVector3D(0.0, 0.0, 0.0);

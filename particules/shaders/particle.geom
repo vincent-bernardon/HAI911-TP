@@ -16,6 +16,9 @@ uniform mat4 mvp;
 // Variables d'entrées : des tableaux
 in vec3 initialVertPos[];
 
+in vec4 Color[];
+out vec4 Colorimg;
+
 // Variables de sorties : des éléments uniques
 out vec2 UV;
 
@@ -39,18 +42,25 @@ void main(void) {
 
     gl_Position = topLeft;
 	UV = vec2(0.0, 1.0);
+    Colorimg=Color[0];
     EmitVertex();
 
     gl_Position = bottomLeft;
 	UV = vec2(0.0, 0.0);
+    Colorimg=Color[0];
+
     EmitVertex();
 
     gl_Position = topRight;
 	UV = vec2(1.0, 1.0);
+    Colorimg=Color[0];
+
     EmitVertex();
 
     gl_Position = bottomRight;
 	UV = vec2(1.0, 0.0);
+    Colorimg=Color[0];
+
     EmitVertex();
 	
 	EndPrimitive();

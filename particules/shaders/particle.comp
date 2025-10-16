@@ -6,11 +6,24 @@ layout(local_size_x = 256) in;
 
 // Structures des données des particules
 struct Particle {
-    vec4 pos;
-    vec4 speed;
-    float age;
-    float ageMax;
-    vec2 padding;
+    vec4 pos; // 16
+    vec4 speed; // 16
+    float age; // 4
+    float ageMax; // 4
+    vec4 color; // 16
+    vec4 padding2;// 16
+    vec4 padding3; // 16
+    vec4 padding7; // 16
+    vec4 padding8; // 16
+    vec4 padding9; // 16
+    // total : pos(16) + speed(16) + age(4) + ageMax(4) + color(16) +
+    // padding2(16) + padding3(16) + padding7(16) + padding8(16) + padding9(16)
+    // = 136 octect
+    // wtf pk je dois pas mette cromme dnas particle.h
+
+
+
+
 };
 
 // Buffer des particules
@@ -36,6 +49,7 @@ void initParticle(inout Particle p) {
     p.speed = vec4(norm * cos(angle), norm * sin(angle), 2.0 + random(float(gl_GlobalInvocationID.x) + 1.0) * 1.5, 0.0);
     p.age = 0.0;
     p.ageMax = 2.0 + random(float(gl_GlobalInvocationID.x) + 2.0) * 3.0;
+    p.color = vec4(0.0, 0.0, 1.0, 1.0);
 }
 
 // Fonction principale
@@ -60,6 +74,9 @@ void main() {
     if (p.age >= p.ageMax) {
         initParticle(p);
     }
+
+    float lifeRatio = clamp(p.age / p.ageMax, 0.0, 1.0);
+    p.color = mix(vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 1.0, 1.0), lifeRatio);
 
     particles[id] = p;
 }
