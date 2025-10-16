@@ -5,7 +5,7 @@ out vec4 fragColor;
 // Input du geometry shader
 in vec2 UV;
 
-in vec4 Colorimg;
+in vec4 Colorimg; //pour fiare changerles couleur des particules
 
 // uniform vec4 color = vec4(1.0, 0.0, 0.0, 1.0);
 
@@ -23,5 +23,6 @@ void main(void)
     vec4 texColor = texture(particleTexture, UV);
     if(texColor.a < 0.1)
         discard; // Ne pas afficher les pixels transparents
-    fragColor = Colorimg;
+    fragColor = texColor * Colorimg;
+    // fragColor = Colorimg;
 }

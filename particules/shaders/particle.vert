@@ -8,7 +8,7 @@ uniform mat4 mvp;
 uniform float time = 0;
 
 out vec3 initialVertPos;
-out vec4 Color;
+out vec4 Color; //pour faire changer la couleur 
 
 void main(void)
 {

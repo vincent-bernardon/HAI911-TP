@@ -16,8 +16,8 @@ uniform mat4 mvp;
 // Variables d'entrées : des tableaux
 in vec3 initialVertPos[];
 
-in vec4 Color[];
-out vec4 Colorimg;
+in vec4 Color[]; //pour faire changer la couleur 
+out vec4 Colorimg; //pour faire changer la couleur 
 
 // Variables de sorties : des éléments uniques
 out vec2 UV;
